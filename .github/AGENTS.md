@@ -20,6 +20,7 @@ All coding agents must follow the constraints below.
 - Avoid code smells (duplication, long methods, hidden side effects, brittle conditionals).
 - Use design patterns only when they clearly reduce complexity or improve maintainability.
 - Keep code clean and pragmatic; avoid over-engineering.
+- As iterations progress, scan for emerging duplication and record low-risk cleanup candidates for subsequent refactor commits.
 
 ## TDD Workflow (Mandatory)
 
