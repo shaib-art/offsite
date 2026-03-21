@@ -212,12 +212,19 @@ checking, no copy/restore operations yet.
 - **93% overall coverage**
 - Per-module: `cli.py` 97%, `scanner.py` 92%, `filtering.py` 91%, `snapshot.py` 97%, `db.py` 100%, `repository.py` 100%, `pathing.py` 83% (Windows-only `winreg` block uncoverable on macOS/Linux)
 
+#### Recorded decisions (for phase final report)
+
+- CLI framework: keep `argparse` for Phase 1; defer `click` migration.
+- Rationale: current CLI scope is small, runtime dependencies are intentionally minimal in Phase 1, and migration now would add churn/risk to a stable green PR.
+- Re-evaluation trigger (Phase 2+): consider `click` when CLI reaches ~5+ subcommands, needs nested command groups/richer interactive UX, or `argparse` boilerplate duplication becomes material.
+
 #### Pending / next steps
 
 - Phase 1 closure checklist:
   - [ ] All critical/high design-feedback findings resolved or deferred with rationale
   - [ ] CI matrix green on both `ubuntu-latest` and `windows-latest`
   - [ ] `pathing.py` lines 54-60 marked `# pragma: no cover` or covered via Windows CI job
+  - [ ] Final report includes the recorded CLI framework verdict (`argparse` now, `click` deferred) and re-evaluation triggers
 - Phase 2 candidates (not yet scoped):
   - SHA-256 integrity checksums (`hash_sha256` column already reserved)
   - Drive registration / detection
