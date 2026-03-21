@@ -52,8 +52,14 @@ def _read_windows_long_paths_enabled() -> bool | None:
         return None
 
     try:
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, WINDOWS_LONG_PATHS_REG_PATH) as registry_key:
-            value, _ = winreg.QueryValueEx(registry_key, WINDOWS_LONG_PATHS_REG_VALUE)
+        with winreg.OpenKey(  # type: ignore[attr-defined]
+            winreg.HKEY_LOCAL_MACHINE,  # type: ignore[attr-defined]
+            WINDOWS_LONG_PATHS_REG_PATH,
+        ) as registry_key:
+            value, _ = winreg.QueryValueEx(  # type: ignore[attr-defined]
+                registry_key,
+                WINDOWS_LONG_PATHS_REG_VALUE,
+            )
     except OSError:
         return None
 

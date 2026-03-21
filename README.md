@@ -57,7 +57,7 @@ offsite init-home --db .offsite/state.db
 
 ### `init-home` — initialise local state database
 
-```
+```text
 offsite init-home [--db PATH]
 ```
 
@@ -71,7 +71,7 @@ Creates the directory and bootstraps the schema if the file does not exist (idem
 
 ### `scan` — snapshot a source root
 
-```
+```text
 offsite scan --source PATH [--db PATH] [--include FOLDER ...] [--exclude FOLDER ...]
 ```
 
@@ -94,7 +94,7 @@ A tie goes to exclude. An `--include` can create a nested exception inside an `-
 
 ## Architecture
 
-```
+```text
 src/offsite/
 ├── cli.py                      # Argument parsing and subcommand dispatch
 └── core/
@@ -146,6 +146,13 @@ src/offsite/
 .venv/bin/pytest --cov=src/offsite --cov-report=term-missing -q
 ```
 
+### Running lint and type checks
+
+```bash
+# Python lint + typing + docs + YAML
+.venv/bin/tox -e lint,type,lint-docs,lint-yaml
+```
+
 ### Coverage gates
 
 | Scope | Minimum |
@@ -171,6 +178,7 @@ src/offsite/
 
 - `lint-and-types`, `unit-tests`, `simulation-tests`, `coverage-gate`
 - Platforms: `ubuntu-latest`, `windows-latest`
+- Additional meta lint: `super-linter` job for Markdown, GitHub Actions, YAML, and JSON files
 
 ---
 
@@ -197,6 +205,7 @@ checking, no copy/restore operations yet.
 | 3 | Include/exclude folder filtering + scan counters | `3f2aaec` (red) `bfc57dc` (green) |
 | 4 | Snapshot run lifecycle (`running → ok/failed`, rollback-safe) | `926f138` (red) `02704a9` (green) |
 | 5 | `scan` CLI subcommand wiring `execute_snapshot_run` | `5de137d` (red) `87a3468` (green) |
+| 6 | Quality gates and lint/type infrastructure (`tox` + CI workflows) | `phase 6 complete (local)` |
 
 #### Between-iteration housekeeping applied
 
@@ -210,13 +219,24 @@ checking, no copy/restore operations yet.
 
 - **33 tests passing**, 0 failures
 - **93% overall coverage**
-- Per-module: `cli.py` 97%, `scanner.py` 92%, `filtering.py` 91%, `snapshot.py` 97%, `db.py` 100%, `repository.py` 100%, `pathing.py` 83% (Windows-only `winreg` block uncoverable on macOS/Linux)
+- Per-module: `cli.py` 97%, `scanner.py` 92%, `filtering.py` 91%,
+  `snapshot.py` 97%, `db.py` 100%, `repository.py` 100%, `pathing.py` 83%
+  (Windows-only `winreg` block uncoverable on macOS/Linux)
 
 #### Recorded decisions (for phase final report)
 
 - CLI framework: keep `argparse` for Phase 1; defer `click` migration.
-- Rationale: current CLI scope is small, runtime dependencies are intentionally minimal in Phase 1, and migration now would add churn/risk to a stable green PR.
-- Re-evaluation trigger (Phase 2+): consider `click` when CLI reaches ~5+ subcommands, needs nested command groups/richer interactive UX, or `argparse` boilerplate duplication becomes material.
+- Rationale: current CLI scope is small, runtime dependencies are intentionally
+  minimal in Phase 1, and migration now would add churn/risk to a stable green
+  PR.
+- Re-evaluation trigger (Phase 2+): consider `click` when CLI reaches ~5+
+  subcommands, needs nested command groups/richer interactive UX, or
+  `argparse` boilerplate duplication becomes material.
+- Quality tooling verdict: use a combo approach.
+  - Local/dev orchestration via `tox` for `flake8` (+ plugins), `pylint`,
+    `mypy`, Markdown lint, and YAML lint.
+  - CI meta validation via `super-linter` for Markdown, GitHub Actions,
+    YAML, and JSON file formats.
 
 #### Pending / next steps
 

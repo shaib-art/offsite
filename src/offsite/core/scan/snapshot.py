@@ -55,7 +55,7 @@ def execute_snapshot_run(
                 repository.mark_run_ok(run_id)
 
             return SnapshotRunResult(run_id=run_id, status="ok")
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             with connection:
                 repository.mark_run_failed(run_id, str(exc))
 

@@ -1,0 +1,26 @@
+---
+name: meta-lint
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  super-linter:
+    name: super-linter (markdown/actions/yaml/json)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Super-linter
+        uses: github/super-linter@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: main
+          VALIDATE_ALL_CODEBASE: false
+          FILTER_REGEX_EXCLUDE: .venv/|.git/|.idea/|.pytest_cache/
+          VALIDATE_PYTHON: false
+          VALIDATE_MARKDOWN: true
+          VALIDATE_GITHUB_ACTIONS: true
+          VALIDATE_YAML: true
+          VALIDATE_JSON: true

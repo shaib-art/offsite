@@ -21,7 +21,6 @@ def test_include_rule_scans_only_selected_subtree(tmp_path: Path):
     assert "ministry_of_silly_walks/report.txt" not in path_rels
 
 
-
 def test_exclude_rule_skips_entire_subtree(tmp_path: Path):
     """Exclude rules should skip matching folders and their descendants."""
     (tmp_path / "bridge_of_death").mkdir()
@@ -36,7 +35,6 @@ def test_exclude_rule_skips_entire_subtree(tmp_path: Path):
     assert "camelot/knights.txt" in path_rels
     assert "bridge_of_death" not in path_rels
     assert "bridge_of_death/keeper.txt" not in path_rels
-
 
 
 def test_include_exclude_precedence_is_deterministic(tmp_path: Path):

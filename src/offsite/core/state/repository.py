@@ -25,6 +25,8 @@ class SnapshotRepository:
             """,
             (started_at, source_root.as_posix()),
         )
+        if cursor.lastrowid is None:
+            raise RuntimeError("Failed to persist snapshot_run row")
         return int(cursor.lastrowid)
 
     def mark_run_ok(self, run_id: int) -> None:
