@@ -21,6 +21,8 @@ All coding agents must follow the constraints below.
 - Use design patterns only when they clearly reduce complexity or improve maintainability.
 - Keep code clean and pragmatic; avoid over-engineering.
 - As iterations progress, scan for emerging duplication and record low-risk cleanup candidates for subsequent refactor commits.
+- Prefer `pathlib.Path`-first APIs and internals; avoid `str`/`str | Path` path signatures unless unavoidable by third-party interfaces.
+- Account for Windows long-path constraints: support extended-length path handling and warn when long-path policy (`LongPathsEnabled`) appears disabled.
 
 ## TDD Workflow (Mandatory)
 

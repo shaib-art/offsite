@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from offsite.core.scan.scanner import scan_source
+from offsite.core.state.db import initialize_database
 
 
 def _find_entry(entries: list[dict], path_rel: str) -> dict:
@@ -80,3 +81,32 @@ def test_scan_records_controlled_error_for_unreadable_path(tmp_path: Path, monke
     assert len(result.errors) == 1
     assert result.errors[0]["path_rel"] == "blocked"
     assert result.errors[0]["error_type"] == "PermissionError"
+
+
+def test_scan_warns_when_long_path_policy_risk_detected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from offsite.core.scan import scanner as scanner_module
+
+    monkeypatch.setattr(
+        scanner_module,
+        "get_windows_long_path_warning",
+        lambda _path: "windows-long-path-warning",
+    )
+
+    with pytest.warns(RuntimeWarning, match="windows-long-path-warning"):
+        scan_source(tmp_path)
+
+
+def test_initialize_database_warns_when_long_path_policy_risk_detected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from offsite.core.state import db as db_module
+
+    monkeypatch.setattr(
+        db_module,
+        "get_windows_long_path_warning",
+        lambda _path: "windows-long-path-warning",
+    )
+
+    db_path = tmp_path / "state.db"
+    with pytest.warns(RuntimeWarning, match="windows-long-path-warning"):
+        initialize_database(db_path)

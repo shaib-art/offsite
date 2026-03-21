@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 from typing import Any
+
+from offsite.core.pathing import get_windows_long_path_warning, to_windows_extended_path
 
 
 class ScanResult:
@@ -11,8 +14,12 @@ class ScanResult:
         self.errors = errors
 
 
-def scan_source(source_root: str | Path, skip_symlinks: bool = True) -> ScanResult:
-    root = Path(source_root).resolve()
+def scan_source(source_root: Path, skip_symlinks: bool = True) -> ScanResult:
+    root = source_root.resolve()
+    warning_text = get_windows_long_path_warning(root)
+    if warning_text:
+        warnings.warn(warning_text, RuntimeWarning, stacklevel=2)
+
     entries: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
 
@@ -29,8 +36,10 @@ def _scan_dir(
     errors: list[dict[str, str]],
     skip_symlinks: bool,
 ) -> None:
+    scan_dir = to_windows_extended_path(current_dir)
+
     try:
-        with os.scandir(str(current_dir)) as iterator:
+        with os.scandir(scan_dir) as iterator:
             children = sorted(iterator, key=lambda entry: entry.name)
     except OSError as exc:
         errors.append(
@@ -42,7 +51,7 @@ def _scan_dir(
         return
 
     for entry in children:
-        abs_path = Path(entry.path)
+        abs_path = current_dir / entry.name
         path_rel = _to_rel_path(root, abs_path)
 
         try:

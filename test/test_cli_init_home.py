@@ -18,3 +18,8 @@ def test_init_home_creates_database_file(tmp_path, open_sqlite):
         }
     assert "snapshot_run" in tables
     assert "snapshot_file" in tables
+
+
+def test_main_without_command_returns_nonzero():
+    exit_code = main([])
+    assert exit_code == 1
