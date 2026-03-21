@@ -1,1 +1,2 @@
-pysimplegui==4.60.5
+# Runtime dependencies only.
+# Intentionally empty for now in Phase 1.

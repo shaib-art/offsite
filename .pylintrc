@@ -1,0 +1,17 @@
+[MASTER]
+ignore=.git,.venv,.tox,__pycache__
+
+[MESSAGES CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    import-outside-toplevel
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-args=8
+max-positional-arguments=8

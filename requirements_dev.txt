@@ -1,0 +1,4 @@
+# Developer environment dependencies.
+-r requirements.txt
+-r requirements_test.txt
+-r requirements_lint.txt
