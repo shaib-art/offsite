@@ -172,7 +172,7 @@ src/offsite/
 1. Write failing tests and commit (`phase1(iterationN): add failing …`).
 2. Write minimal code to pass, commit (`phase1(iterationN): implement …`).
 3. Optional refactor commit if needed.
-4. Between-iteration housekeeping commits use the `reivew:` prefix.
+4. Between-iteration housekeeping commits use the `review:` prefix.
 
 ### CI matrix (GitHub Actions)
 

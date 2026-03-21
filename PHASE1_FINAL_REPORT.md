@@ -205,10 +205,10 @@ Platform matrix:        ubuntu-latest ✅, windows-latest ✅
 - **External Dependencies:** ✅ **None** (intentional Phase 1 constraint)
 
 ### Development & Quality
-- **Testing:** pytest 9.0.2, pytest-cov 6.1.1
+- **Testing:** pytest 9.0.2, pytest-cov 7.0.0
 - **Linting:** flake8 7.3.0 + plugins (bugbear, comprehensions, pytest-style)
 - **Type Checking:** mypy 1.18.2 (strict mode)
-- **Code Analysis:** pylint 3.3.3
+- **Code Analysis:** pylint 3.3.9
 - **Orchestration:** tox 4.30.2
 - **Meta-format Lint:** super-linter v7 (Docker-based in CI)
 - **Documentation Lint:** pymarkdown-lnt 0.9.31

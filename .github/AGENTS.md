@@ -63,7 +63,7 @@ Use small, reviewable commits per requirement slice:
 
 When an iteration passes its acceptance criteria, agents should automatically create the corresponding commit(s) for that iteration without requiring an extra user prompt.
 
-Commits created from between-iteration interactions (for example, review feedback, policy tweaks, or housekeeping outside the active iteration scope) must use a commit message prefix of `reivew`.
+Commits created from between-iteration interactions (for example, review feedback, policy tweaks, or housekeeping outside the active iteration scope) must use a commit message prefix of `review`.
 
 Commit messages should include phase and scope for traceability.
 
