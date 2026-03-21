@@ -1,9 +1,7 @@
-import sqlite3
-
 from offsite.cli import main
 
 
-def test_init_home_creates_database_file(tmp_path):
+def test_init_home_creates_database_file(tmp_path, open_sqlite):
     db_path = tmp_path / "state.db"
 
     exit_code = main(["init-home", "--db", str(db_path)])
@@ -11,7 +9,7 @@ def test_init_home_creates_database_file(tmp_path):
     assert exit_code == 0
     assert db_path.exists()
 
-    with sqlite3.connect(db_path) as conn:
+    with open_sqlite(db_path) as conn:
         tables = {
             row[0]
             for row in conn.execute(

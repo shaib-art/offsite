@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 SCHEMA_V1 = """
@@ -30,6 +31,6 @@ def initialize_database(db_path: str | Path) -> None:
     database_path = Path(db_path)
     database_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect(database_path) as conn:
+    with closing(sqlite3.connect(database_path)) as conn:
         conn.executescript(SCHEMA_V1)
         conn.commit()
