@@ -1,3 +1,5 @@
+"""Tests for scanner traversal, metadata, and warning behavior."""
+
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,7 @@ def _find_entry(entries: list[dict], path_rel: str) -> dict:
 
 
 def test_scan_recurses_nested_directories_and_is_deterministic(tmp_path: Path):
+    """Scanner should recurse directories and emit entries in stable order."""
     (tmp_path / "z-dir").mkdir()
     (tmp_path / "a-dir").mkdir()
     (tmp_path / "a-dir" / "child.txt").write_text("hello", encoding="utf-8")
@@ -31,6 +34,7 @@ def test_scan_recurses_nested_directories_and_is_deterministic(tmp_path: Path):
 
 
 def test_scan_captures_required_metadata_for_files_and_directories(tmp_path: Path):
+    """Scanner should record required metadata fields for dirs and files."""
     (tmp_path / "folder").mkdir()
     file_path = tmp_path / "folder" / "data.bin"
     file_path.write_bytes(b"abc")
@@ -49,6 +53,7 @@ def test_scan_captures_required_metadata_for_files_and_directories(tmp_path: Pat
 
 
 def test_scan_skips_symlinks_by_default(tmp_path: Path):
+    """Scanner should ignore symlink entries when default options are used."""
     target_file = tmp_path / "target.txt"
     target_file.write_text("target", encoding="utf-8")
     symlink_path = tmp_path / "link.txt"
@@ -62,6 +67,7 @@ def test_scan_skips_symlinks_by_default(tmp_path: Path):
 
 
 def test_scan_records_controlled_error_for_unreadable_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Scanner should report unreadable paths as controlled non-fatal errors."""
     blocked_dir = tmp_path / "blocked"
     blocked_dir.mkdir()
 
@@ -84,6 +90,7 @@ def test_scan_records_controlled_error_for_unreadable_path(tmp_path: Path, monke
 
 
 def test_scan_warns_when_long_path_policy_risk_detected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Scanner should emit a runtime warning when long-path policy is at risk."""
     from offsite.core.scan import scanner as scanner_module
 
     monkeypatch.setattr(
@@ -99,6 +106,7 @@ def test_scan_warns_when_long_path_policy_risk_detected(tmp_path: Path, monkeypa
 def test_initialize_database_warns_when_long_path_policy_risk_detected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
+    """Database bootstrap should emit a warning when long-path policy is at risk."""
     from offsite.core.state import db as db_module
 
     monkeypatch.setattr(

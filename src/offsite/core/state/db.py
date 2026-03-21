@@ -1,3 +1,5 @@
+"""SQLite bootstrap and schema initialization helpers."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -30,7 +32,7 @@ CREATE TABLE IF NOT EXISTS snapshot_file (
 
 
 def initialize_database(db_path: Path) -> None:
-    """Initialize phase-1 schema in the SQLite database at db_path."""
+    """Initialize the phase-1 SQLite schema at the requested path."""
     database_path = db_path.resolve()
     database_path.parent.mkdir(parents=True, exist_ok=True)
 

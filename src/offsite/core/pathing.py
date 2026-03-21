@@ -1,3 +1,5 @@
+"""Path-related utilities for cross-platform filesystem behavior."""
+
 from __future__ import annotations
 
 import sys
@@ -9,7 +11,7 @@ WINDOWS_LONG_PATHS_REG_VALUE = "LongPathsEnabled"
 
 
 def to_windows_extended_path(path: Path) -> Path:
-    """Return a Windows extended-length path when running on Windows."""
+    """Convert a path to the Windows extended-length form when needed."""
     if sys.platform != "win32":
         return path
 
@@ -25,7 +27,7 @@ def to_windows_extended_path(path: Path) -> Path:
 
 
 def get_windows_long_path_warning(path: Path) -> str | None:
-    """Return warning text if Windows long path policy may block operations."""
+    """Return guidance text when Windows long-path policy may block access."""
     if sys.platform != "win32":
         return None
 

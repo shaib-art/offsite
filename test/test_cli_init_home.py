@@ -1,7 +1,10 @@
+"""CLI tests for init-home behavior and command handling."""
+
 from offsite.cli import main
 
 
 def test_init_home_creates_database_file(tmp_path, open_sqlite):
+    """init-home should create a DB file and bootstrap required tables."""
     db_path = tmp_path / "state.db"
 
     exit_code = main(["init-home", "--db", str(db_path)])
@@ -21,5 +24,6 @@ def test_init_home_creates_database_file(tmp_path, open_sqlite):
 
 
 def test_main_without_command_returns_nonzero():
+    """CLI should return a failure code when no subcommand is provided."""
     exit_code = main([])
     assert exit_code == 1

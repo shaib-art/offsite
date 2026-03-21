@@ -1,3 +1,5 @@
+"""Filesystem traversal and metadata collection for scan operations."""
+
 from __future__ import annotations
 
 import os
@@ -9,12 +11,16 @@ from offsite.core.pathing import get_windows_long_path_warning, to_windows_exten
 
 
 class ScanResult:
+    """Result container for scan entries and non-fatal scan errors."""
+
     def __init__(self, entries: list[dict[str, Any]], errors: list[dict[str, str]]) -> None:
+        """Create a scan result from collected entries and error records."""
         self.entries = entries
         self.errors = errors
 
 
 def scan_source(source_root: Path, skip_symlinks: bool = True) -> ScanResult:
+    """Traverse a source root and return deterministic scan output."""
     root = source_root.resolve()
     warning_text = get_windows_long_path_warning(root)
     if warning_text:

@@ -1,3 +1,5 @@
+"""Command-line entry points for phase-1 offsite operations."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,6 +9,7 @@ from offsite.core.state.db import initialize_database
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the root CLI parser and subcommands."""
     parser = argparse.ArgumentParser(prog="offsite")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -22,6 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Execute the CLI command and return a process exit code."""
     parser = build_parser()
     args = parser.parse_args(argv)
 

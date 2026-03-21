@@ -1,3 +1,5 @@
+"""Tests for SQLite schema bootstrap and idempotent setup."""
+
 import sqlite3
 
 from offsite.core.state.db import initialize_database
@@ -9,6 +11,7 @@ def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
 
 
 def test_initialize_database_creates_schema(tmp_path, open_sqlite):
+    """Database initialization should create both phase-1 tables."""
     db_path = tmp_path / "state.db"
 
     initialize_database(db_path)
@@ -25,6 +28,7 @@ def test_initialize_database_creates_schema(tmp_path, open_sqlite):
 
 
 def test_initialize_database_is_idempotent(tmp_path, open_sqlite):
+    """Running database initialization twice should keep schema intact."""
     db_path = tmp_path / "state.db"
 
     initialize_database(db_path)
@@ -38,6 +42,7 @@ def test_initialize_database_is_idempotent(tmp_path, open_sqlite):
 
 
 def test_initialize_database_has_required_columns(tmp_path, open_sqlite):
+    """Schema should expose required columns for snapshot_run and snapshot_file."""
     db_path = tmp_path / "state.db"
 
     initialize_database(db_path)

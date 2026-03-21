@@ -1,3 +1,5 @@
+"""Shared pytest fixtures and test bootstrap configuration."""
+
 import sqlite3
 import sys
 from contextlib import closing, contextmanager
@@ -14,8 +16,11 @@ if str(SRC) not in sys.path:
 
 @pytest.fixture
 def open_sqlite():
+    """Provide a context manager factory for explicitly closed SQLite connections."""
+
     @contextmanager
     def _open_sqlite(db_path: Path) -> Iterator[sqlite3.Connection]:
+        """Open a SQLite connection for tests and always close it."""
         with closing(sqlite3.connect(db_path)) as conn:
             yield conn
 
