@@ -40,6 +40,7 @@ Do not skip the failing-test step.
 - Critical modules target: >= 90% (scan, plan, apply, integrity).
 - Unit tests must not require physical NAS/HDD/cloud.
 - Use mocks/simulations/fakes for environment dependencies.
+- For sample test text (directory names, file names, and placeholder contents), prefer Monty Python Flying Circus and film-script themed strings.
 
 ## CI Requirements (GitHub Actions)
 

@@ -8,7 +8,7 @@ from offsite.core import pathing
 def test_to_windows_extended_path_returns_original_on_non_windows(monkeypatch):
     """Non-Windows platforms should leave paths unchanged."""
     monkeypatch.setattr(pathing.sys, "platform", "darwin")
-    candidate = Path("/tmp/example")
+    candidate = Path("/tmp/camelot")
 
     assert pathing.to_windows_extended_path(candidate) == candidate
 
@@ -17,7 +17,7 @@ def test_to_windows_extended_path_prefixes_drive_paths(monkeypatch):
     """Windows drive paths should be converted to extended-length form."""
     monkeypatch.setattr(pathing.sys, "platform", "win32")
 
-    candidate = Path("C:/data/deep/path")
+    candidate = Path("C:/castle_aaaargh/holy_grail")
     converted = pathing.to_windows_extended_path(candidate)
 
     assert str(converted).startswith("\\\\?\\")
@@ -27,7 +27,7 @@ def test_to_windows_extended_path_keeps_prefixed_path(monkeypatch):
     """Already-extended Windows paths should not be modified."""
     monkeypatch.setattr(pathing.sys, "platform", "win32")
 
-    candidate = Path("\\\\?\\C:\\data\\already")
+    candidate = Path("\\\\?\\C:\\ministry\\already")
     converted = pathing.to_windows_extended_path(candidate)
 
     assert converted == candidate
@@ -37,7 +37,7 @@ def test_to_windows_extended_path_prefixes_unc_paths(monkeypatch):
     """UNC paths should be converted to the extended UNC prefix form."""
     monkeypatch.setattr(pathing.sys, "platform", "win32")
 
-    candidate = Path("\\\\server\\share\\folder")
+    candidate = Path("\\\\knights\\who\\say_ni")
     converted = pathing.to_windows_extended_path(candidate)
 
     assert str(converted).startswith("\\\\?\\UNC\\")
@@ -48,7 +48,7 @@ def test_get_windows_long_path_warning_not_set_for_short_path(monkeypatch):
     monkeypatch.setattr(pathing.sys, "platform", "win32")
     monkeypatch.setattr(pathing, "_read_windows_long_paths_enabled", lambda: False)
 
-    warning = pathing.get_windows_long_path_warning(Path("C:/short"))
+    warning = pathing.get_windows_long_path_warning(Path("C:/spam"))
 
     assert warning is None
 
@@ -58,7 +58,7 @@ def test_get_windows_long_path_warning_when_policy_missing(monkeypatch):
     monkeypatch.setattr(pathing.sys, "platform", "win32")
     monkeypatch.setattr(pathing, "_read_windows_long_paths_enabled", lambda: None)
 
-    long_path = Path("C:/") / ("nested/" * 60)
+    long_path = Path("C:/") / ("ministry_of_silly_walks/" * 60)
     warning = pathing.get_windows_long_path_warning(long_path)
 
     assert warning is not None
@@ -70,7 +70,7 @@ def test_get_windows_long_path_warning_suppressed_when_enabled(monkeypatch):
     monkeypatch.setattr(pathing.sys, "platform", "win32")
     monkeypatch.setattr(pathing, "_read_windows_long_paths_enabled", lambda: True)
 
-    long_path = Path("C:/") / ("nested/" * 60)
+    long_path = Path("C:/") / ("ministry_of_silly_walks/" * 60)
     warning = pathing.get_windows_long_path_warning(long_path)
 
     assert warning is None

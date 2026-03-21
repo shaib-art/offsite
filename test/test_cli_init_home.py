@@ -5,7 +5,7 @@ from offsite.cli import main
 
 def test_init_home_creates_database_file(tmp_path, open_sqlite):
     """init-home should create a DB file and bootstrap required tables."""
-    db_path = tmp_path / "state.db"
+    db_path = tmp_path / "grail_state.db"
 
     exit_code = main(["init-home", "--db", str(db_path)])
 
