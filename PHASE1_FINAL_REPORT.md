@@ -32,7 +32,7 @@ Phase 1 successfully delivers a CLI-based scan pipeline that traverses local fil
 
 ### Architecture
 
-```
+```text
 src/offsite/
 ├── cli.py                      # argparse-based CLI dispatcher
 └── core/
@@ -48,7 +48,7 @@ src/offsite/
 
 ### Execution Flow
 
-```
+```text
 1. User runs: offsite scan --source /path --include foo --exclude bar
 2. cli.py parses args → calls execute_snapshot_run()
 3. snapshot.py creates snapshot_run(status='running')
@@ -95,7 +95,7 @@ src/offsite/
   - Cross-platform policy detection via `_read_windows_long_path_enabled()` for warnings
 
 #### 5. Quality Tooling: Hybrid local + CI approach
-- **Decision:** 
+- **Decision:**
   - **Local/Dev:** `tox` orchestrates `flake8`, `pylint`, `mypy`, markdown lint, YAML lint
   - **CI Meta:** `super-linter` for Markdown, GitHub Actions, YAML, JSON formats
 - **Rationale:**
@@ -134,7 +134,7 @@ src/offsite/
 
 ### Test Coverage
 
-```
+```text
 Overall:    93% (265 lines, 19 gaps)
 Per module:
   ✅ db.py                     100%   (SQLite schema + bootstrap)
@@ -152,7 +152,7 @@ Per module:
 
 ### CI Matrix (All Green)
 
-```
+```text
 Environment              Status    Time      Remarks
 ─────────────────────────────────────────────────────
 super-linter             ✅ pass   ~1min     Markdown, GitHub Actions, YAML, JSON linting
@@ -169,7 +169,7 @@ TOTAL RUNTIME:           ~9min     8/8 jobs pass on every commit
 
 ### Lint & Type Results
 
-```
+```text
 Python code:
   flake8 (with bugbear, comprehensions, pytest-style)  → 0 violations
   pylint                                                → 10.00/10 (perfect)
@@ -183,7 +183,7 @@ Meta formats:
 
 ### Test Statistics
 
-```
+```text
 Total tests:            33
 Passing:                33
 Failing:                0
