@@ -42,7 +42,8 @@ Key design constraints:
 ```bash
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
-pip install -e .
+pip install -r requirements_dev.txt
+export PYTHONPATH=src          # Windows: set PYTHONPATH=src
 ```
 
 ### Initialise the state database

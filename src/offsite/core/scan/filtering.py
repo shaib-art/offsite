@@ -53,11 +53,6 @@ def _normalize_folder_rules(rules: list[Path]) -> list[str]:
     return normalized
 
 
-def _matches_any_rule(path_rel: str, rules: list[str]) -> bool:
-    normalized_path = _normalize_rel_path(path_rel)
-    return any(_path_matches_rule(normalized_path, rule) for rule in rules)
-
-
 def _best_match_depth(path_rel: str, rules: list[str]) -> int | None:
     normalized_path = _normalize_rel_path(path_rel)
     matched_depths = [rule.count("/") + 1 for rule in rules if _path_matches_rule(normalized_path, rule)]

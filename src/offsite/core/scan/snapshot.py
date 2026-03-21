@@ -38,6 +38,7 @@ def execute_snapshot_run(
 
     connect_path = to_windows_extended_path(database_path)
     with closing(sqlite3.connect(connect_path)) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
         repository = SnapshotRepository(connection)
         run_id = repository.create_run_running(source_root.resolve())
         connection.commit()
