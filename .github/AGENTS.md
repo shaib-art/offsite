@@ -57,6 +57,8 @@ Use small, reviewable commits per requirement slice:
 2. implementation commit (minimal passing code)
 3. refactor commit (optional)
 
+When an iteration passes its acceptance criteria, agents should automatically create the corresponding commit(s) for that iteration without requiring an extra user prompt.
+
 Commit messages should include phase and scope for traceability.
 
 ## Traceability Requirements
