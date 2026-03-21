@@ -42,6 +42,7 @@ def _scan_dir(
     errors: list[dict[str, str]],
     skip_symlinks: bool,
 ) -> None:
+    """Scan one directory level using root as stable relpath anchor and current_dir as recursion cursor."""
     scan_dir = to_windows_extended_path(current_dir)
 
     try:
