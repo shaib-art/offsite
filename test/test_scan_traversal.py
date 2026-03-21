@@ -76,7 +76,8 @@ def test_scan_records_controlled_error_for_unreadable_path(tmp_path: Path, monke
     original_scandir = scanner_module.os.scandir
 
     def fake_scandir(path: str):
-        if Path(path) == blocked_dir:
+        # Windows may pass an extended-length path (\\?\ prefix).
+        if "bridge_of_death" in str(path):
             raise PermissionError("none shall pass")
         return original_scandir(path)
 

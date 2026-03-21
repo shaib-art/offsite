@@ -76,6 +76,15 @@ def test_get_windows_long_path_warning_suppressed_when_enabled(monkeypatch):
     assert warning is None
 
 
-def test_read_windows_long_paths_enabled_returns_none_without_winreg():
-    """Policy lookup should return None on platforms without winreg."""
+def test_read_windows_long_paths_enabled_returns_none_without_winreg(monkeypatch):
+    """Policy lookup should return None when winreg cannot be imported."""
+    original_import = __import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "winreg":
+            raise ModuleNotFoundError("No module named 'winreg'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.__import__", fake_import)
+
     assert pathing._read_windows_long_paths_enabled() is None
