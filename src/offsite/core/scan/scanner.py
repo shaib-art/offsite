@@ -102,15 +102,19 @@ def _scan_dir(
                     summary["excluded_count"] += 1
                     continue
 
-                entries.append(
-                    {
-                        "path_rel": path_rel,
-                        "size_bytes": stat_result.st_size,
-                        "mtime_ns": stat_result.st_mtime_ns,
-                        "file_type": "dir",
-                    }
-                )
-                summary["included_count"] += 1
+                if folder_filter.should_include(path_rel):
+                    entries.append(
+                        {
+                            "path_rel": path_rel,
+                            "size_bytes": stat_result.st_size,
+                            "mtime_ns": stat_result.st_mtime_ns,
+                            "file_type": "dir",
+                        }
+                    )
+                    summary["included_count"] += 1
+                else:
+                    summary["excluded_count"] += 1
+
                 _scan_dir(root, abs_path, folder_filter, entries, errors, summary, skip_symlinks)
                 continue
 

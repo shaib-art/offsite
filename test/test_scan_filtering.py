@@ -55,6 +55,28 @@ def test_include_exclude_precedence_is_deterministic(tmp_path: Path):
     assert "black_knight/stump.txt" not in path_rels
 
 
+def test_excluded_base_can_contain_explicitly_included_nested_subtree(tmp_path: Path):
+    """Traversal should allow include exceptions nested under an excluded base folder."""
+    (tmp_path / "spam").mkdir()
+    (tmp_path / "spam" / "holy_grail").mkdir()
+    (tmp_path / "spam" / "holy_grail" / "cave").mkdir()
+    (tmp_path / "spam" / "holy_grail" / "cave" / "rabbit.txt").write_text(
+        "run away",
+        encoding="utf-8",
+    )
+
+    result = scan_source(
+        tmp_path,
+        include_folders=[Path("spam/holy_grail/cave")],
+        exclude_folders=[Path("spam")],
+    )
+
+    path_rels = [entry["path_rel"] for entry in result.entries]
+    assert "spam" not in path_rels
+    assert "spam/holy_grail" not in path_rels
+    assert "spam/holy_grail/cave" in path_rels
+    assert "spam/holy_grail/cave/rabbit.txt" in path_rels
+
 
 def test_scan_summary_counters_track_scanned_included_and_excluded(tmp_path: Path):
     """Scan summary counters should report scanned/included/excluded totals."""

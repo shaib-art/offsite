@@ -9,32 +9,38 @@ class FolderFilter:
     """Evaluate include/exclude folder rules for deterministic scan decisions."""
 
     def __init__(self, include_folders: list[Path] | None = None, exclude_folders: list[Path] | None = None) -> None:
-        """Build a filter where exclude rules take precedence over include rules."""
+        """Build a filter where the most specific rule wins and exclude wins ties."""
         self._includes = _normalize_folder_rules(include_folders or [])
         self._excludes = _normalize_folder_rules(exclude_folders or [])
 
     def should_include(self, path_rel: str) -> bool:
         """Return True if the path should be kept in scan output."""
-        if _matches_any_rule(path_rel, self._excludes):
-            return False
+        include_depth = _best_match_depth(path_rel, self._includes)
+        exclude_depth = _best_match_depth(path_rel, self._excludes)
 
         if not self._includes:
+            return exclude_depth is None
+
+        if include_depth is None:
+            return False
+
+        if exclude_depth is None:
             return True
 
-        return _matches_any_rule(path_rel, self._includes)
+        if include_depth > exclude_depth:
+            return True
+
+        return False
 
     def should_descend(self, path_rel: str) -> bool:
         """Return True if traversal should continue into a directory path."""
-        if _matches_any_rule(path_rel, self._excludes):
-            return False
-
         if not self._includes:
+            return _best_match_depth(path_rel, self._excludes) is None
+
+        if _is_ancestor_of_any_include(path_rel, self._includes):
             return True
 
-        if _matches_any_rule(path_rel, self._includes):
-            return True
-
-        return _is_ancestor_of_any_include(path_rel, self._includes)
+        return self.should_include(path_rel)
 
 
 def _normalize_folder_rules(rules: list[Path]) -> list[str]:
@@ -50,6 +56,14 @@ def _normalize_folder_rules(rules: list[Path]) -> list[str]:
 def _matches_any_rule(path_rel: str, rules: list[str]) -> bool:
     normalized_path = _normalize_rel_path(path_rel)
     return any(_path_matches_rule(normalized_path, rule) for rule in rules)
+
+
+def _best_match_depth(path_rel: str, rules: list[str]) -> int | None:
+    normalized_path = _normalize_rel_path(path_rel)
+    matched_depths = [rule.count("/") + 1 for rule in rules if _path_matches_rule(normalized_path, rule)]
+    if not matched_depths:
+        return None
+    return max(matched_depths)
 
 
 def _is_ancestor_of_any_include(path_rel: str, include_rules: list[str]) -> bool:
