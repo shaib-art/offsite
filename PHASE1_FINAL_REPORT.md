@@ -123,7 +123,7 @@ src/offsite/
 |------|-------|-----------|--------|
 | During Phase 1 | SQLite `ResourceWarning` fix | `3ff810a` | Proper resource cleanup; added pytest fixture for db testing |
 | During Phase 1 | Docstring audit + completeness pass | `4ad0942`, `1fa7453` | All public APIs documented; consistent style |
-| During Phase 1 | `pathlib`-first API + Windows support | `18a2227` | Eliminated `str | Path` ambiguity; Windows long-path built-in |
+| During Phase 1 | `pathlib`-first API + Windows support | `18a2227` | Eliminated `str`/`Path` ambiguity; Windows long-path built-in |
 | During Phase 1 | Monty Python test data theming | `5b51b99` | Test narrative consistency + culture reflection |
 | During Phase 1 | Nested include exception under excluded | `c139bfd` | Filtering edge case: `--exclude parent --include parent/child` now works |
 | Between IT5+6 | Windows CI test fixes | `3f6b83d` | Fixed 2 test assumptions (path equality, extended-length format), workflow checkout depth |
