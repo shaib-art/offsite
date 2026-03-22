@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import ceil
 
 from offsite.core.diff.differ import DiffEntry
 from offsite.core.plan.packer import Bin, BinPacker, DriveAllocation
 
 
-_RESERVED_FREE_BYTES = 1
+_ABSOLUTE_FREE_FLOOR_BYTES = 10 * 1024 * 1024 * 1024
+_PERCENT_FREE_FLOOR = 0.02
 
 
 @dataclass(frozen=True)
@@ -62,17 +64,17 @@ class Assigner:
         eligible_drives = [
             drive
             for drive in available_drives
-            if drive.free_bytes > _RESERVED_FREE_BYTES
+            if drive.free_bytes > _reserved_free_bytes_for_drive(drive)
         ]
         if not eligible_drives:
             raise ValueError(
-                f"No eligible drives with more than {_RESERVED_FREE_BYTES} reserved free bytes"
+                "No eligible drives with more than required reserved free bytes"
             )
 
         bins = [
             Bin(
                 drive_index=drive.index,
-                remaining_bytes=drive.free_bytes - _RESERVED_FREE_BYTES,
+                remaining_bytes=drive.free_bytes - _reserved_free_bytes_for_drive(drive),
             )
             for drive in eligible_drives
         ]
@@ -97,3 +99,9 @@ def _validate_drives(available_drives: list[DriveInfo]) -> None:
             raise ValueError("Drive free bytes cannot be negative")
         if drive.free_bytes > drive.capacity_bytes:
             raise ValueError("Drive free bytes cannot exceed total capacity")
+
+
+def _reserved_free_bytes_for_drive(drive: DriveInfo) -> int:
+    """Compute fixed reserve policy: larger of absolute or percentage floor."""
+    percentage_floor_bytes = ceil(drive.capacity_bytes * _PERCENT_FREE_FLOOR)
+    return max(_ABSOLUTE_FREE_FLOOR_BYTES, percentage_floor_bytes)

@@ -10,6 +10,10 @@ from offsite.core.diff.differ import DiffEntry
 from offsite.core.plan.assigner import Assigner, DriveInfo
 
 
+GIB = 1024 * 1024 * 1024
+TIB = 1024 * GIB
+
+
 def test_assigner_allocates_added_and_modified_entries() -> None:
     """Assigner should place only added/modified files onto drives."""
     assigner = Assigner()
@@ -48,8 +52,8 @@ def test_assigner_allocates_added_and_modified_entries() -> None:
         ),
     ]
     drives = [
-        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=100, free_bytes=100),
-        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=100, free_bytes=100),
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500 * GIB, free_bytes=500 * GIB),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500 * GIB, free_bytes=500 * GIB),
     ]
 
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
@@ -72,7 +76,7 @@ def test_assigner_supports_mixed_drive_sizes_and_free_space() -> None:
         DiffEntry(
             path=Path("bridge_of_death/one.bin"),
             kind="added",
-            size_bytes=700,
+            size_bytes=700 * GIB,
             mtime_ns=1,
             previous_size=None,
             previous_mtime_ns=None,
@@ -80,7 +84,7 @@ def test_assigner_supports_mixed_drive_sizes_and_free_space() -> None:
         DiffEntry(
             path=Path("bridge_of_death/two.bin"),
             kind="added",
-            size_bytes=450,
+            size_bytes=450 * GIB,
             mtime_ns=2,
             previous_size=None,
             previous_mtime_ns=None,
@@ -88,25 +92,25 @@ def test_assigner_supports_mixed_drive_sizes_and_free_space() -> None:
         DiffEntry(
             path=Path("bridge_of_death/three.bin"),
             kind="added",
-            size_bytes=250,
+            size_bytes=250 * GIB,
             mtime_ns=3,
             previous_size=None,
             previous_mtime_ns=None,
         ),
     ]
     drives = [
-        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=2_000, free_bytes=500),
-        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=2_000, free_bytes=1_000),
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=2 * TIB, free_bytes=500 * GIB),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=2 * TIB, free_bytes=1_000 * GIB),
     ]
 
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
 
     assert plan.total_files == 3
-    assert plan.total_size_bytes == 1_400
+    assert plan.total_size_bytes == 1_400 * GIB
     assert len(plan.allocations) == 2
     by_drive = {allocation.drive_index: allocation.total_size_bytes for allocation in plan.allocations}
-    assert by_drive[0] == 450
-    assert by_drive[1] == 950
+    assert by_drive[0] == 450 * GIB
+    assert by_drive[1] == 950 * GIB
 
 
 def test_assigner_uses_only_remaining_space_on_partially_used_drives() -> None:
@@ -116,7 +120,7 @@ def test_assigner_uses_only_remaining_space_on_partially_used_drives() -> None:
         DiffEntry(
             path=Path("ni/partial.bin"),
             kind="added",
-            size_bytes=90,
+            size_bytes=90 * GIB,
             mtime_ns=1,
             previous_size=None,
             previous_mtime_ns=None,
@@ -124,20 +128,20 @@ def test_assigner_uses_only_remaining_space_on_partially_used_drives() -> None:
         DiffEntry(
             path=Path("ni/partial_2.bin"),
             kind="added",
-            size_bytes=60,
+            size_bytes=60 * GIB,
             mtime_ns=2,
             previous_size=None,
             previous_mtime_ns=None,
         ),
     ]
     drives = [
-        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=100),
-        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500, free_bytes=100),
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500 * GIB, free_bytes=100 * GIB),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500 * GIB, free_bytes=100 * GIB),
     ]
 
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
 
-    assert plan.total_size_bytes == 150
+    assert plan.total_size_bytes == 150 * GIB
     assert len(plan.allocations) == 2
 
 
@@ -156,7 +160,7 @@ def test_assigner_ignores_full_drives_when_others_can_fit() -> None:
     ]
     drives = [
         DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=0),
-        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500, free_bytes=100),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500 * GIB, free_bytes=100 * GIB),
     ]
 
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
@@ -173,18 +177,20 @@ def test_assigner_raises_when_files_do_not_fit_available_drives() -> None:
         DiffEntry(
             path=Path("bridge_of_death/too_large.bin"),
             kind="added",
-            size_bytes=180,
+            size_bytes=180 * GIB,
             mtime_ns=1,
             previous_size=None,
             previous_mtime_ns=None,
         ),
     ]
-    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=100, free_bytes=100)]
+    drives = [
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=100 * GIB, free_bytes=100 * GIB)
+    ]
 
     with pytest.raises(ValueError, match="too_large.bin") as error:
         assigner.assign(diff_entries=diff_entries, available_drives=drives)
 
-    assert "180" in str(error.value)
+    assert str(180 * GIB) in str(error.value)
 
 
 def test_assigner_raises_for_invalid_drive_free_space() -> None:
@@ -220,8 +226,8 @@ def test_assigner_raises_when_no_drive_meets_reserved_free_space_rule() -> None:
         )
     ]
     drives = [
-        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=0),
-        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500, free_bytes=1),
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500 * GIB, free_bytes=0),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500 * GIB, free_bytes=1 * GIB),
     ]
 
     with pytest.raises(ValueError, match="No eligible drives"):
@@ -229,19 +235,21 @@ def test_assigner_raises_when_no_drive_meets_reserved_free_space_rule() -> None:
 
 
 def test_assigner_keeps_default_one_byte_reserve_per_drive() -> None:
-    """Default planning should avoid consuming a drive's final free byte."""
+    """Default planning should keep policy reserve instead of consuming full free bytes."""
     assigner = Assigner()
     diff_entries = [
         DiffEntry(
             path=Path("ministry/exact_fit.bin"),
             kind="added",
-            size_bytes=100,
+            size_bytes=500 * GIB,
             mtime_ns=1,
             previous_size=None,
             previous_mtime_ns=None,
         )
     ]
-    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=100)]
+    drives = [
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500 * GIB, free_bytes=500 * GIB)
+    ]
 
     with pytest.raises(ValueError, match="exact_fit.bin"):
         assigner.assign(diff_entries=diff_entries, available_drives=drives)
@@ -262,7 +270,7 @@ def test_assigner_handles_very_large_file_sizes() -> None:
         )
     ]
     drives = [
-        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=20_000_000_000, free_bytes=20_000_000_000)
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=100 * GIB, free_bytes=100 * GIB)
     ]
 
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
@@ -284,7 +292,9 @@ def test_assigner_handles_one_byte_file() -> None:
             previous_mtime_ns=None,
         )
     ]
-    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=10, free_bytes=10)]
+    drives = [
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500 * GIB, free_bytes=500 * GIB)
+    ]
 
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
 

@@ -13,6 +13,10 @@ from offsite.core.state.db import initialize_database
 from offsite.core.state.repository import SnapshotRepository
 
 
+GIB = 1024 * 1024 * 1024
+LARGE_DRIVE_BYTES = 500 * GIB
+
+
 def _seed_snapshot(repository: SnapshotRepository, source_root: Path, entries: list[dict]) -> int:
     """Create and finalize a snapshot row for plan CLI tests."""
     run_id = repository.create_run_running(source_root)
@@ -103,7 +107,7 @@ def test_plan_uses_previous_snapshot_by_default(open_sqlite, tmp_path: Path, cap
     _seed_apply_and_inventory(
         db_path,
         snapshot_id=old_snapshot_id,
-        drives=[("Office-01", 100, 100)],
+        drives=[("Office-01", LARGE_DRIVE_BYTES, LARGE_DRIVE_BYTES)],
     )
 
     exit_code = main(
@@ -162,7 +166,7 @@ def test_plan_accepts_explicit_from_snapshot(open_sqlite, tmp_path: Path, capsys
     _seed_apply_and_inventory(
         db_path,
         snapshot_id=oldest,
-        drives=[("Office-01", 100, 100)],
+        drives=[("Office-01", LARGE_DRIVE_BYTES, LARGE_DRIVE_BYTES)],
     )
 
     exit_code = main(
@@ -175,7 +179,7 @@ def test_plan_accepts_explicit_from_snapshot(open_sqlite, tmp_path: Path, capsys
             "--snapshot-id",
             str(new_snapshot_id),
             "--drives",
-            "Office-Override:100B",
+            "Office-Override:500GB",
         ]
     )
 
@@ -213,7 +217,7 @@ def test_plan_reports_insufficient_capacity(open_sqlite, tmp_path: Path, capsys)
             [
                 {
                     "path_rel": "bridge_of_death/too_large.bin",
-                    "size_bytes": 200,
+                    "size_bytes": 90_000_000_000,
                     "mtime_ns": 1,
                     "file_type": "file",
                 },
@@ -224,7 +228,7 @@ def test_plan_reports_insufficient_capacity(open_sqlite, tmp_path: Path, capsys)
     _seed_apply_and_inventory(
         db_path,
         snapshot_id=old_snapshot_id,
-        drives=[("Office-01", 100, 100)],
+        drives=[("Office-01", LARGE_DRIVE_BYTES, LARGE_DRIVE_BYTES)],
     )
 
     exit_code = main(
@@ -237,7 +241,7 @@ def test_plan_reports_insufficient_capacity(open_sqlite, tmp_path: Path, capsys)
             "--snapshot-id",
             str(new_snapshot_id),
             "--drives",
-            "Office-01:100B",
+            "Office-01:100GB",
         ]
     )
 
@@ -265,7 +269,7 @@ def test_plan_rejects_exact_fit_when_default_reserve_applies(
             [
                 {
                     "path_rel": "ministry/exact_fit.bin",
-                    "size_bytes": 100,
+                    "size_bytes": 100_000_000_000,
                     "mtime_ns": 1,
                     "file_type": "file",
                 },
@@ -276,7 +280,7 @@ def test_plan_rejects_exact_fit_when_default_reserve_applies(
     _seed_apply_and_inventory(
         db_path,
         snapshot_id=old_snapshot_id,
-        drives=[("Office-01", 100, 100)],
+        drives=[("Office-01", LARGE_DRIVE_BYTES, LARGE_DRIVE_BYTES)],
     )
 
     exit_code = main(
@@ -289,7 +293,7 @@ def test_plan_rejects_exact_fit_when_default_reserve_applies(
             "--snapshot-id",
             str(new_snapshot_id),
             "--drives",
-            "Office-01:100B",
+            "Office-01:100GB",
         ]
     )
 
@@ -388,7 +392,7 @@ def test_plan_output_is_machine_parseable_json(open_sqlite, tmp_path: Path, caps
     _seed_apply_and_inventory(
         db_path,
         snapshot_id=old_snapshot_id,
-        drives=[("Office-01", 100, 100)],
+        drives=[("Office-01", LARGE_DRIVE_BYTES, LARGE_DRIVE_BYTES)],
     )
 
     exit_code = main(

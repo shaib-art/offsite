@@ -10,6 +10,9 @@ from offsite.core.state.db import initialize_database
 from offsite.core.state.repository import SnapshotRepository
 
 
+GIB = 1024 * 1024 * 1024
+
+
 def _seed_snapshot(repository: SnapshotRepository, source_root: Path, entries: list[dict]) -> int:
     """Create and complete a snapshot run with provided snapshot_file rows."""
     run_id = repository.create_run_running(source_root)
@@ -82,8 +85,8 @@ def test_diff_to_plan_assignment_workflow(open_sqlite, tmp_path: Path) -> None:
 
     assigner = Assigner()
     drives = [
-        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=100, free_bytes=100),
-        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=100, free_bytes=100),
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500 * GIB, free_bytes=500 * GIB),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500 * GIB, free_bytes=500 * GIB),
     ]
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
 
