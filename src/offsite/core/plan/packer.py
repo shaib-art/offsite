@@ -28,7 +28,7 @@ class BinPacker:
 
         for path, size_bytes in sorted_files:
             if size_bytes > capacity_bytes:
-                raise ValueError(f"File '{path.as_posix()}' exceeds drive capacity")
+                raise ValueError(f"File {path.as_posix()!r} exceeds drive capacity")
 
             placed = False
             for index, allocation in enumerate(allocations):
