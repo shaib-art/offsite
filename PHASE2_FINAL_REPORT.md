@@ -9,7 +9,12 @@
 
 ## Executive Summary
 
-Phase 2 delivers a deterministic planning pipeline that compares snapshots, classifies file changes, applies deletion retention rules, resolves destination drive inventory, and produces a machine-parseable allocation plan. The implementation is validated by full cross-platform CI (Ubuntu and Windows), critical-module coverage gates, and a dedicated Phase 2 CI expansion with simulation-style integration testing.
+Phase 2 delivers a deterministic planning pipeline that compares snapshots,
+classifies file changes, applies deletion retention rules, resolves destination
+drive inventory, and produces a machine-parseable allocation plan. The
+implementation is validated by full cross-platform CI (Ubuntu and Windows),
+critical-module coverage gates, and a dedicated Phase 2 CI expansion with
+simulation-style integration testing.
 
 ---
 

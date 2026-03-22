@@ -12,7 +12,7 @@ from contextlib import closing
 from pathlib import Path
 
 from offsite.core.pathing import get_windows_long_path_warning, to_windows_extended_path
-from offsite.core.diff.differ import Differ
+from offsite.core.diff.differ import DiffEntry, Differ
 from offsite.core.plan.assigner import Assigner, DriveInfo
 from offsite.core.plan.packer import DriveAllocation
 from offsite.core.scan.snapshot import execute_snapshot_run
@@ -160,20 +160,24 @@ def _build_plan_payload(
         differ = Differ(repository)
         diff_entries = differ.diff(old_snapshot_id=old_snapshot_id, new_snapshot_id=new_snapshot_id)
 
-    assigner = Assigner()
-    plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
-    summary = {"added": 0, "modified": 0, "deleted": 0, "unchanged": 0}
-    for entry in diff_entries:
-        summary[entry.kind] += 1
+    plan = Assigner().assign(diff_entries=diff_entries, available_drives=drives)
 
     return {
         "new_snapshot_id": str(new_snapshot_id),
         "old_snapshot_id": str(old_snapshot_id),
-        "diff_summary": summary,
+        "diff_summary": _build_diff_summary(diff_entries),
         "allocation": _build_allocation_payload(plan.allocations, drives),
         "total_files_to_allocate": plan.total_files,
         "total_bytes_allocated": plan.total_size_bytes,
     }
+
+
+def _build_diff_summary(diff_entries: list[DiffEntry]) -> dict[str, int]:
+    """Count diff entries by kind for stable machine-readable reporting."""
+    summary = {"added": 0, "modified": 0, "deleted": 0, "unchanged": 0}
+    for diff_entry in diff_entries:
+        summary[diff_entry.kind] += 1
+    return summary
 
 
 def _resolve_snapshot_range(
