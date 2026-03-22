@@ -19,7 +19,8 @@ designed around a one-drive-at-a-time workflow (home ↔ office HDD rotation).
 ## Overview
 
 `offsite` scans source roots, records file metadata in a local SQLite state database,
-and (in later phases) verifies integrity across backup drives and cloud targets.
+and builds deterministic diff/assignment plans for one-drive-at-a-time offline
+backup rotation.
 
 Key design constraints:
 
@@ -93,6 +94,28 @@ A tie goes to exclude. An `--include` can create a nested exception inside an `-
 
 ---
 
+### `plan` — build diff + drive assignment plan
+
+```text
+offsite plan --snapshot-id ID [--from ID] [--drives LABEL:SIZE,...] [--db PATH]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--snapshot-id` | *(required)* | New snapshot id to plan from |
+| `--from` | *(auto previous snapshot)* | Explicit old snapshot id |
+| `--drives` | *(none)* | Override persisted inventory with `LABEL:SIZE` CSV |
+| `--db` | `.offsite/state.db` | Path to the SQLite state file |
+
+Plan behavior:
+
+- Uses persisted home inventory by default (latest synced office apply result).
+- Fails fast when sync/inventory state is stale or missing.
+- Applies drive reserve policy per drive: `max(10 GiB, 2% of capacity)`.
+- Produces machine-parseable JSON output (`diff_summary`, `allocation`, totals).
+
+---
+
 ## Architecture
 
 ```text
@@ -100,16 +123,22 @@ src/offsite/
 ├── cli.py                      # Argument parsing and subcommand dispatch
 └── core/
     ├── pathing.py              # Cross-platform path utilities (Windows long-path)
+  ├── diff/
+  │   ├── deleted.py          # Deletion retention helpers
+  │   └── differ.py           # Snapshot-to-snapshot diff generation
+  ├── plan/
+  │   ├── packer.py           # First-fit decreasing bin packing
+  │   └── assigner.py         # Reserve-aware drive assignment planning
     ├── scan/
     │   ├── filtering.py        # Include/exclude folder rule matching
     │   ├── scanner.py          # Recursive filesystem traversal
     │   └── snapshot.py         # Scan → persist lifecycle orchestration
     └── state/
         ├── db.py               # SQLite schema bootstrap
-        └── repository.py       # snapshot_run / snapshot_file persistence
+    └── repository.py       # snapshot/history/inventory persistence APIs
 ```
 
-### SQLite schema (Phase 1)
+### SQLite schema (Phase 2)
 
 **`snapshot_run`** — one row per scan invocation
 
@@ -131,7 +160,24 @@ src/offsite/
 | `size_bytes` | INTEGER | |
 | `mtime_ns` | INTEGER | Nanosecond mtime |
 | `file_type` | TEXT | `file` or `dir` |
-| `hash_sha256` | TEXT | NULL in Phase 1 (reserved for Phase 2) |
+| `hash_sha256` | TEXT | Reserved for integrity phases |
+
+**`office_apply_result`** — latest office-side apply synchronization marker
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK | Auto-increment |
+| `applied_snapshot_id` | INTEGER FK | References `snapshot_run.id` |
+| `applied_at` | TEXT | ISO-8601 UTC |
+
+**`home_drive_inventory`** — persisted home-side drive inventory snapshot
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `drive_label` | TEXT | Stable drive label |
+| `capacity_bytes` | INTEGER | Total capacity |
+| `free_bytes` | INTEGER | Current free bytes |
+| `apply_result_id` | INTEGER FK | References `office_apply_result.id` |
 
 ---
 
@@ -177,8 +223,9 @@ src/offsite/
 
 ### CI matrix (GitHub Actions)
 
-- `lint-and-types`, `unit-tests`, `simulation-tests`, `coverage-gate`
-- Platforms: `ubuntu-latest`, `windows-latest`
+- `lint-and-types` (ubuntu-latest)
+- `unit-tests` (ubuntu-latest, windows-latest)
+- `coverage-gate` (ubuntu-latest)
 - Additional meta lint: `super-linter` job for Markdown, GitHub Actions, YAML, and JSON files
 
 ---
@@ -187,66 +234,44 @@ src/offsite/
 
 > **Read this section first when resuming in a new session.**
 
-### Active branch / PR
+### Current branch
 
-- Branch: `private/shaib/restart`
-- PR #1: [Phase 1 - Scanner and state database](https://github.com/shaib-art/offsite/pull/1)
+- Branch: `main`
+- Phase 2 implementation merged
 
-### Phase 1 — Scanner and state database
+### Phase 2 — Diff planning and drive assignment
 
-**Goal:** CLI-accessible scan pipeline that records file metadata into SQLite. No integrity
-checking, no copy/restore operations yet.
+**Delivered scope:** deterministic snapshot diffing, deletion-retention gating,
+reserve-aware drive assignment planning, inventory-backed `plan` CLI, and CI
+quality/coverage enforcement.
 
 #### Completed iterations
 
-| # | Scope | Key commits |
-|---|-------|-------------|
-| 1 | CLI `init-home` + SQLite schema bootstrap | early history |
-| 2 | Recursive filesystem traversal (`scanner.py`) | `01b09f4` (red) `fe34f5d` (green) |
-| 3 | Include/exclude folder filtering + scan counters | `3f2aaec` (red) `bfc57dc` (green) |
-| 4 | Snapshot run lifecycle (`running → ok/failed`, rollback-safe) | `926f138` (red) `02704a9` (green) |
-| 5 | `scan` CLI subcommand wiring `execute_snapshot_run` | `5de137d` (red) `87a3468` (green) |
-| 6 | Quality gates and lint/type infrastructure (`tox` + CI workflows) | `phase 6 complete (local)` |
+| # | Scope | Status |
+|---|-------|--------|
+| 1 | Diff generation foundation | COMPLETE |
+| 2 | Deletion retention and deletable gate | COMPLETE |
+| 3 | Packing/assignment over heterogeneous drives | COMPLETE |
+| 4 | `plan` CLI wiring + inventory-first behavior | COMPLETE |
+| 5 | Edge-case hardening + phase-module confidence | COMPLETE |
+| 6 | CI expansion + simulation coverage evolution | COMPLETE |
 
-#### Between-iteration housekeeping applied
+#### Current test / coverage snapshot
 
-- SQLite `ResourceWarning` fix — `closing()` + `open_sqlite` pytest fixture (`3ff810a`)
-- `pathlib`-first API policy + Windows long-path support (`18a2227`)
-- Full codebase docstring pass (`4ad0942`, `1fa7453`)
-- Monty Python test data style enforced in tests and `AGENTS.md` (`5b51b99`)
-- Nested include exception under excluded base folder (`c139bfd`)
+- **77 tests passing**, 0 failures
+- **92.34% overall coverage** (gate >=85%)
+- **95.89% phase-module coverage** for `offsite.core.diff` + `offsite.core.plan` (gate >=90%)
 
-#### Current test / coverage status
+#### Key implemented policy decisions
 
-- **33 tests passing**, 0 failures
-- **93% overall coverage**
-- Per-module: `cli.py` 97%, `scanner.py` 92%, `filtering.py` 91%,
-  `snapshot.py` 97%, `db.py` 100%, `repository.py` 100%, `pathing.py` 83%
-  (Windows-only `winreg` block uncoverable on macOS/Linux)
+- CLI framework verdict: keep `argparse` for Phase 2.
+- Planning reserve policy: `max(10 GiB, 2% capacity)` per drive (non-overridable).
+- Planning default: persisted inventory first; explicit `--drives` remains override.
+- CI cleanup: PR-only workflow triggers; static analysis deduplicated to single OS;
+  cross-OS runtime tests retained.
 
-#### Recorded decisions (for phase final report)
+#### Pending / next steps (Phase 3 candidates)
 
-- CLI framework: keep `argparse` for Phase 1; defer `click` migration.
-- Rationale: current CLI scope is small, runtime dependencies are intentionally
-  minimal in Phase 1, and migration now would add churn/risk to a stable green
-  PR.
-- Re-evaluation trigger (Phase 2+): consider `click` when CLI reaches ~5+
-  subcommands, needs nested command groups/richer interactive UX, or
-  `argparse` boilerplate duplication becomes material.
-- Quality tooling verdict: use a combo approach.
-  - Local/dev orchestration via `tox` for `flake8` (+ plugins), `pylint`,
-    `mypy`, Markdown lint, and YAML lint.
-  - CI meta validation via `super-linter` for Markdown, GitHub Actions,
-    YAML, and JSON file formats.
-
-#### Pending / next steps
-
-- Phase 1 closure checklist:
-  - [ ] All critical/high design-feedback findings resolved or deferred with rationale
-  - [ ] CI matrix green on both `ubuntu-latest` and `windows-latest`
-  - [ ] `pathing.py` lines 54-60 marked `# pragma: no cover` or covered via Windows CI job
-  - [ ] Final report includes the recorded CLI framework verdict (`argparse` now, `click` deferred) and re-evaluation triggers
-- Phase 2 candidates (not yet scoped):
-  - SHA-256 integrity checksums (`hash_sha256` column already reserved)
-  - Drive registration / detection
-  - Copy / verify / restore operations
+- Apply/copy execution pipeline based on generated plan.
+- Integrity hashing/verification lifecycle (`hash_sha256` activation).
+- Restore/reconciliation workflows and failure recovery UX.
