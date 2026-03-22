@@ -11,7 +11,7 @@ def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
 
 
 def test_initialize_database_creates_schema(tmp_path, open_sqlite):
-    """Database initialization should create both phase-1 tables."""
+    """Database initialization should create required state tables."""
     db_path = tmp_path / "ministry_of_silly_walks.db"
 
     initialize_database(db_path)
@@ -25,6 +25,8 @@ def test_initialize_database_creates_schema(tmp_path, open_sqlite):
         }
     assert "snapshot_run" in tables
     assert "snapshot_file" in tables
+    assert "office_apply_result" in tables
+    assert "home_drive_inventory" in tables
 
 
 def test_initialize_database_is_idempotent(tmp_path, open_sqlite):
@@ -36,9 +38,14 @@ def test_initialize_database_is_idempotent(tmp_path, open_sqlite):
 
     with open_sqlite(db_path) as conn:
         row_count = conn.execute(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('snapshot_run', 'snapshot_file')"
+            """
+            SELECT COUNT(*)
+            FROM sqlite_master
+            WHERE type='table'
+              AND name IN ('snapshot_run', 'snapshot_file', 'office_apply_result', 'home_drive_inventory')
+            """
         ).fetchone()[0]
-    assert row_count == 2
+    assert row_count == 4
 
 
 def test_initialize_database_has_required_columns(tmp_path, open_sqlite):

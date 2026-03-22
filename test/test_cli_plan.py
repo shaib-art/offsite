@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,34 @@ def _seed_snapshot(repository: SnapshotRepository, source_root: Path, entries: l
     return run_id
 
 
+def _seed_apply_and_inventory(
+    db_path: Path,
+    snapshot_id: int,
+    drives: list[tuple[str, int, int]],
+) -> None:
+    with sqlite3.connect(db_path) as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO office_apply_result (applied_snapshot_id, applied_at)
+            VALUES (?, '2026-03-22T00:00:00+00:00')
+            """,
+            (snapshot_id,),
+        )
+        apply_result_id = int(cursor.lastrowid)
+        payload = [
+            (label, capacity_bytes, free_bytes, apply_result_id)
+            for label, capacity_bytes, free_bytes in drives
+        ]
+        connection.executemany(
+            """
+            INSERT INTO home_drive_inventory (drive_label, capacity_bytes, free_bytes, apply_result_id)
+            VALUES (?, ?, ?, ?)
+            """,
+            payload,
+        )
+        connection.commit()
+
+
 def test_plan_help_shows_usage(capsys) -> None:
     """Plan help should include required command flags."""
     with pytest.raises(SystemExit) as error:
@@ -32,7 +61,7 @@ def test_plan_help_shows_usage(capsys) -> None:
 
 
 def test_plan_uses_previous_snapshot_by_default(open_sqlite, tmp_path: Path, capsys) -> None:
-    """When --from is omitted, plan should use the latest previous snapshot."""
+    """When --from is omitted, plan should use latest previous snapshot + persisted inventory."""
     db_path = tmp_path / "plan_default_from.db"
     initialize_database(db_path)
     source_root = tmp_path / "ministry_of_silly_walks"
@@ -71,6 +100,12 @@ def test_plan_uses_previous_snapshot_by_default(open_sqlite, tmp_path: Path, cap
         )
         connection.commit()
 
+    _seed_apply_and_inventory(
+        db_path,
+        snapshot_id=old_snapshot_id,
+        drives=[("Office-01", 100, 100)],
+    )
+
     exit_code = main(
         [
             "plan",
@@ -78,8 +113,6 @@ def test_plan_uses_previous_snapshot_by_default(open_sqlite, tmp_path: Path, cap
             str(db_path),
             "--snapshot-id",
             str(new_snapshot_id),
-            "--drives",
-            "Office-01:100B",
         ]
     )
 
@@ -126,6 +159,12 @@ def test_plan_accepts_explicit_from_snapshot(open_sqlite, tmp_path: Path, capsys
         )
         connection.commit()
 
+    _seed_apply_and_inventory(
+        db_path,
+        snapshot_id=oldest,
+        drives=[("Office-01", 100, 100)],
+    )
+
     exit_code = main(
         [
             "plan",
@@ -136,7 +175,7 @@ def test_plan_accepts_explicit_from_snapshot(open_sqlite, tmp_path: Path, capsys
             "--snapshot-id",
             str(new_snapshot_id),
             "--drives",
-            "Office-01:100B",
+            "Office-Override:100B",
         ]
     )
 
@@ -201,6 +240,47 @@ def test_plan_reports_insufficient_capacity(open_sqlite, tmp_path: Path, capsys)
     assert "too_large.bin" in captured.err
 
 
+def test_plan_fails_when_inventory_sync_state_is_missing(
+    open_sqlite,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    """Planning without synced office apply result should fail with actionable message."""
+    db_path = tmp_path / "plan_stale_state.db"
+    initialize_database(db_path)
+    source_root = tmp_path / "holy_grail"
+
+    with open_sqlite(db_path) as connection:
+        repository = SnapshotRepository(connection)
+        _seed_snapshot(repository, source_root, [])
+        new_snapshot_id = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "holy_grail/new.bin",
+                    "size_bytes": 10,
+                    "mtime_ns": 1,
+                    "file_type": "file",
+                },
+            ],
+        )
+        connection.commit()
+
+    exit_code = main([
+        "plan",
+        "--db",
+        str(db_path),
+        "--snapshot-id",
+        str(new_snapshot_id),
+    ])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "sync" in captured.err.lower()
+    assert "office apply" in captured.err.lower()
+
+
 def test_plan_output_is_machine_parseable_json(open_sqlite, tmp_path: Path, capsys) -> None:
     """Plan output should follow a stable JSON schema for later automation."""
     db_path = tmp_path / "plan_json_output.db"
@@ -247,6 +327,12 @@ def test_plan_output_is_machine_parseable_json(open_sqlite, tmp_path: Path, caps
         )
         connection.commit()
 
+    _seed_apply_and_inventory(
+        db_path,
+        snapshot_id=old_snapshot_id,
+        drives=[("Office-01", 100, 100)],
+    )
+
     exit_code = main(
         [
             "plan",
@@ -256,8 +342,6 @@ def test_plan_output_is_machine_parseable_json(open_sqlite, tmp_path: Path, caps
             str(old_snapshot_id),
             "--snapshot-id",
             str(new_snapshot_id),
-            "--drives",
-            "Office-01:100B",
         ]
     )
 
