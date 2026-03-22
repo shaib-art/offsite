@@ -1,0 +1,131 @@
+"""Snapshot diff generation between two persisted snapshot ids."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Literal
+
+from offsite.core.diff.deleted import is_deletion_candidate
+from offsite.core.state.repository import SnapshotFileRecord, SnapshotRepository
+
+
+@dataclass(frozen=True)
+class DiffEntry:
+    """Represents a single change between two snapshots."""
+
+    path: Path
+    kind: Literal["added", "modified", "deleted", "unchanged"]
+    size_bytes: int
+    mtime_ns: int
+    previous_size: int | None
+    previous_mtime_ns: int | None
+
+
+class Differ:
+    """Compare two snapshots and produce diff entries."""
+
+    def __init__(self, repository: SnapshotRepository) -> None:
+        """Create a diff engine bound to a snapshot repository."""
+        self._repository = repository
+
+    def diff(self, old_snapshot_id: int, new_snapshot_id: int) -> list[DiffEntry]:
+        """Load both snapshots from DB, compare rows, and return a path-sorted diff."""
+        old_files = _index_by_path(_only_file_rows(self._repository.get_snapshot_files(old_snapshot_id)))
+        new_files = _index_by_path(_only_file_rows(self._repository.get_snapshot_files(new_snapshot_id)))
+
+        all_paths = sorted(set(old_files) | set(new_files), key=lambda path: path.as_posix())
+
+        output: list[DiffEntry] = []
+        for path in all_paths:
+            previous = old_files.get(path)
+            current = new_files.get(path)
+
+            if previous is None and current is not None:
+                output.append(
+                    DiffEntry(
+                        path=path,
+                        kind="added",
+                        size_bytes=current.size_bytes,
+                        mtime_ns=current.mtime_ns,
+                        previous_size=None,
+                        previous_mtime_ns=None,
+                    )
+                )
+                continue
+
+            if previous is not None and current is None:
+                output.append(
+                    DiffEntry(
+                        path=path,
+                        kind="deleted",
+                        size_bytes=0,
+                        mtime_ns=0,
+                        previous_size=previous.size_bytes,
+                        previous_mtime_ns=previous.mtime_ns,
+                    )
+                )
+                continue
+
+            if previous is None or current is None:
+                continue
+
+            if previous.size_bytes != current.size_bytes or previous.mtime_ns != current.mtime_ns:
+                kind: Literal["added", "modified", "deleted", "unchanged"] = "modified"
+            else:
+                kind = "unchanged"
+
+            output.append(
+                DiffEntry(
+                    path=path,
+                    kind=kind,
+                    size_bytes=current.size_bytes,
+                    mtime_ns=current.mtime_ns,
+                    previous_size=previous.size_bytes,
+                    previous_mtime_ns=previous.mtime_ns,
+                )
+            )
+
+        return output
+
+    def get_deletable_files(
+        self,
+        old_snapshot_id: int,
+        new_snapshot_id: int,
+        evaluation_time_ns: int | None = None,
+        retention_days: int = 30,
+    ) -> list[DiffEntry]:
+        """Return deleted diff entries that have aged beyond the retention policy."""
+        now_ns = _utc_now_ns() if evaluation_time_ns is None else evaluation_time_ns
+        deleted_entries = [
+            entry
+            for entry in self.diff(old_snapshot_id=old_snapshot_id, new_snapshot_id=new_snapshot_id)
+            if entry.kind == "deleted"
+        ]
+        return [
+            entry
+            for entry in deleted_entries
+            if entry.previous_mtime_ns is not None
+            and is_deletion_candidate(
+                file_path=entry.path,
+                deleted_at_ns=entry.previous_mtime_ns,
+                evaluation_time_ns=now_ns,
+                retention_days=retention_days,
+            )
+        ]
+
+
+def _index_by_path(files: list[SnapshotFileRecord]) -> dict[Path, SnapshotFileRecord]:
+    """Build a lookup keyed by relative path for efficient diff comparison."""
+    return {file_record.path: file_record for file_record in files}
+
+
+def _only_file_rows(files: list[SnapshotFileRecord]) -> list[SnapshotFileRecord]:
+    """Return only regular-file rows and ignore directory entries in planning diffs."""
+    return [file_record for file_record in files if file_record.file_type == "file"]
+
+
+def _utc_now_ns() -> int:
+    """Return current UTC time in nanoseconds for deletion-gate evaluation."""
+    return int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
