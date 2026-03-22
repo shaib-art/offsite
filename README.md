@@ -104,13 +104,15 @@ offsite plan --snapshot-id ID [--from ID] [--drives LABEL:SIZE,...] [--db PATH]
 |--------|---------|-------------|
 | `--snapshot-id` | *(required)* | New snapshot id to plan from |
 | `--from` | *(auto previous snapshot)* | Explicit old snapshot id |
-| `--drives` | *(none)* | Override persisted inventory with `LABEL:SIZE` CSV |
+| `--drives` | *(none)* | Override drive specs with `LABEL:SIZE` CSV (does not bypass sync/inventory requirement) |
 | `--db` | `.offsite/state.db` | Path to the SQLite state file |
 
 Plan behavior:
 
 - Uses persisted home inventory by default (latest synced office apply result).
-- Fails fast when sync/inventory state is stale or missing.
+- When `--drives` is provided, uses the provided drive specifications for planning,
+  but still requires a valid synced apply/inventory state.
+- Fails fast when sync/inventory state is stale or missing, even when `--drives` is passed.
 - Applies drive reserve policy per drive: `max(10 GiB, 2% of capacity)`.
 - Produces machine-parseable JSON output (`diff_summary`, `allocation`, totals).
 
@@ -177,7 +179,7 @@ src/offsite/
 | `drive_label` | TEXT | Stable drive label |
 | `capacity_bytes` | INTEGER | Total capacity |
 | `free_bytes` | INTEGER | Current free bytes |
-| `apply_result_id` | INTEGER FK | References `office_apply_result.id` |
+| `apply_result_id` | INTEGER FK | References `office_apply_result.id`; with `drive_label` forms composite primary key |
 
 ---
 
