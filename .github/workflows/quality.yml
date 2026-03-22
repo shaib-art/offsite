@@ -41,6 +41,52 @@ jobs:
       - name: Unit tests
         run: python -m tox -e py313
 
+  phase2-tests:
+    name: phase2-tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements_dev.txt
+      - name: Run Phase 2 Unit Tests
+        env:
+          PYTHONPATH: src
+        run: >-
+          pytest -v --tb=short
+          test/test_differ.py
+          test/test_deleted.py
+          test/test_packer.py
+          test/test_assigner.py
+      - name: Run Phase 2 Integration Tests
+        env:
+          PYTHONPATH: src
+        run: >-
+          pytest -v --tb=short
+          test/test_plan_workflow.py
+          tests/integration/test_plan_workflow.py
+      - name: Coverage Report (Phase 2)
+        env:
+          PYTHONPATH: src
+        run: >-
+          pytest
+          --cov=offsite.core.diff
+          --cov=offsite.core.plan
+          --cov-fail-under=90
+          --cov-report=term-missing
+          test/test_differ.py
+          test/test_deleted.py
+          test/test_packer.py
+          test/test_assigner.py
+          test/test_plan_workflow.py
+          tests/integration/test_plan_workflow.py
+
   simulation-tests:
     name: simulation-tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
