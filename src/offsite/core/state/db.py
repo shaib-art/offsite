@@ -28,6 +28,22 @@ CREATE TABLE IF NOT EXISTS snapshot_file (
     hash_sha256 TEXT,
     FOREIGN KEY (snapshot_id) REFERENCES snapshot_run(id)
 );
+
+CREATE TABLE IF NOT EXISTS office_apply_result (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    applied_snapshot_id INTEGER NOT NULL,
+    applied_at TEXT NOT NULL,
+    FOREIGN KEY (applied_snapshot_id) REFERENCES snapshot_run(id)
+);
+
+CREATE TABLE IF NOT EXISTS home_drive_inventory (
+    drive_label TEXT NOT NULL,
+    capacity_bytes INTEGER NOT NULL,
+    free_bytes INTEGER NOT NULL,
+    apply_result_id INTEGER NOT NULL,
+    PRIMARY KEY (drive_label, apply_result_id),
+    FOREIGN KEY (apply_result_id) REFERENCES office_apply_result(id)
+);
 """
 
 

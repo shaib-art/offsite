@@ -19,6 +19,16 @@ class SnapshotFileRecord:
     file_type: str
 
 
+@dataclass(frozen=True)
+class DriveInventoryRecord:
+    """A persisted inventory row describing one home-side drive."""
+
+    drive_label: str
+    capacity_bytes: int
+    free_bytes: int
+    apply_result_id: int
+
+
 class SnapshotRepository:
     """Persistence operations for snapshot_run and snapshot_file records."""
 
@@ -145,6 +155,71 @@ class SnapshotRepository:
         if row is None:
             return None
         return int(row[0])
+
+    def create_office_apply_result(self, applied_snapshot_id: int) -> int:
+        """Create a new office apply-result row and return its id."""
+        cursor = self._connection.execute(
+            """
+            INSERT INTO office_apply_result (applied_snapshot_id, applied_at)
+            VALUES (?, ?)
+            """,
+            (applied_snapshot_id, _utc_now_text()),
+        )
+        if cursor.lastrowid is None:
+            raise RuntimeError("Failed to persist office_apply_result row")
+        return int(cursor.lastrowid)
+
+    def replace_home_drive_inventory(
+        self,
+        apply_result_id: int,
+        drives: list[tuple[str, int, int]],
+    ) -> None:
+        """Replace persisted inventory rows for a specific apply-result id."""
+        self._connection.execute(
+            "DELETE FROM home_drive_inventory WHERE apply_result_id = ?",
+            (apply_result_id,),
+        )
+        payload = [
+            (label, capacity_bytes, free_bytes, apply_result_id)
+            for label, capacity_bytes, free_bytes in drives
+        ]
+        self._connection.executemany(
+            """
+            INSERT INTO home_drive_inventory (drive_label, capacity_bytes, free_bytes, apply_result_id)
+            VALUES (?, ?, ?, ?)
+            """,
+            payload,
+        )
+
+    def get_latest_office_apply_result_id(self) -> int | None:
+        """Return latest office apply-result id, or None when no sync exists."""
+        row = self._connection.execute(
+            "SELECT id FROM office_apply_result ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if row is None:
+            return None
+        return int(row[0])
+
+    def get_home_drive_inventory(self, apply_result_id: int) -> list[DriveInventoryRecord]:
+        """Return persisted drive inventory rows for the specified apply-result id."""
+        rows = self._connection.execute(
+            """
+            SELECT drive_label, capacity_bytes, free_bytes, apply_result_id
+            FROM home_drive_inventory
+            WHERE apply_result_id = ?
+            ORDER BY drive_label ASC
+            """,
+            (apply_result_id,),
+        ).fetchall()
+        return [
+            DriveInventoryRecord(
+                drive_label=str(drive_label),
+                capacity_bytes=int(capacity_bytes),
+                free_bytes=int(free_bytes),
+                apply_result_id=int(row_apply_result_id),
+            )
+            for drive_label, capacity_bytes, free_bytes, row_apply_result_id in rows
+        ]
 
 
 def _utc_now_text() -> str:

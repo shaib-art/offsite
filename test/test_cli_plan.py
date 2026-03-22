@@ -221,6 +221,12 @@ def test_plan_reports_insufficient_capacity(open_sqlite, tmp_path: Path, capsys)
         )
         connection.commit()
 
+    _seed_apply_and_inventory(
+        db_path,
+        snapshot_id=old_snapshot_id,
+        drives=[("Office-01", 100, 100)],
+    )
+
     exit_code = main(
         [
             "plan",

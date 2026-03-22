@@ -71,7 +71,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plan.add_argument(
         "--drives",
-        required=True,
         help="Comma-separated drive specs like Office-01:500GB,Office-02:500GB",
     )
     plan.add_argument(
@@ -139,10 +138,10 @@ def _build_plan_payload(
     drive_spec: str,
 ) -> dict:
     """Build a machine-parseable plan payload from snapshots and drive specs."""
-    drives = _parse_drive_spec(drive_spec)
 
     with closing(sqlite3.connect(db_path.resolve())) as connection:
         repository = SnapshotRepository(connection)
+        drives = _resolve_planning_drives(repository=repository, drive_spec=drive_spec)
         old_snapshot_id = _resolve_snapshot_range(
             repository=repository,
             new_snapshot_id=new_snapshot_id,
@@ -229,6 +228,41 @@ def _parse_drive_spec(drive_spec: str) -> list[DriveInfo]:
             )
         )
     return drives
+
+
+def _resolve_planning_drives(
+    repository: SnapshotRepository,
+    drive_spec: str | None,
+) -> list[DriveInfo]:
+    """Resolve drives from explicit override or synced home inventory state."""
+    override_drives: list[DriveInfo] | None = None
+    if drive_spec is not None:
+        override_drives = _parse_drive_spec(drive_spec)
+
+    latest_apply_result_id = repository.get_latest_office_apply_result_id()
+    if latest_apply_result_id is None:
+        raise ValueError(
+            "Home state is missing office apply sync; sync latest office apply result before planning"
+        )
+
+    inventory_rows = repository.get_home_drive_inventory(latest_apply_result_id)
+    if not inventory_rows:
+        raise ValueError(
+            "Home inventory is stale or missing for latest office apply result; sync inventory before planning"
+        )
+
+    if override_drives is not None:
+        return override_drives
+
+    return [
+        DriveInfo(
+            index=index,
+            label=row.drive_label,
+            capacity_bytes=row.capacity_bytes,
+            free_bytes=row.free_bytes,
+        )
+        for index, row in enumerate(inventory_rows)
+    ]
 
 
 def _parse_size_bytes(size_text: str) -> int:

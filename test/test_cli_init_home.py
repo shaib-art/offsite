@@ -21,6 +21,8 @@ def test_init_home_creates_database_file(tmp_path, open_sqlite):
         }
     assert "snapshot_run" in tables
     assert "snapshot_file" in tables
+    assert "office_apply_result" in tables
+    assert "home_drive_inventory" in tables
 
 
 def test_main_without_command_returns_nonzero():
