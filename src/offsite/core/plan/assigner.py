@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from offsite.core.diff.differ import DiffEntry
-from offsite.core.plan.packer import BinPacker, DriveAllocation
+from offsite.core.plan.packer import Bin, BinPacker, DriveAllocation
 
 
 @dataclass(frozen=True)
@@ -56,19 +56,8 @@ class Assigner:
                 drives_needed=0,
             )
 
-        capacity_bytes = min(drive.free_bytes for drive in available_drives)
-        allocations = self._packer.pack(files=files_to_allocate, capacity_bytes=capacity_bytes)
-        if len(allocations) > len(available_drives):
-            raise ValueError("Insufficient drive capacity for requested assignment")
-
-        remapped_allocations = [
-            DriveAllocation(
-                drive_index=available_drives[allocation.drive_index].index,
-                files=allocation.files,
-                total_size_bytes=allocation.total_size_bytes,
-            )
-            for allocation in allocations
-        ]
+        bins = [Bin(drive_index=drive.index, remaining_bytes=drive.free_bytes) for drive in available_drives]
+        remapped_allocations = self._packer.pack(files=files_to_allocate, bins=bins)
 
         return AssignmentPlan(
             new_snapshot_id="",
@@ -87,3 +76,5 @@ def _validate_drives(available_drives: list[DriveInfo]) -> None:
     for drive in available_drives:
         if drive.free_bytes <= 0:
             raise ValueError("Drive free bytes must be greater than zero")
+        if drive.free_bytes > drive.capacity_bytes:
+            raise ValueError("Drive free bytes cannot exceed total capacity")

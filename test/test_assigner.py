@@ -105,8 +105,8 @@ def test_assigner_supports_mixed_drive_sizes_and_free_space() -> None:
     assert plan.total_size_bytes == 1_400
     assert len(plan.allocations) == 2
     by_drive = {allocation.drive_index: allocation.total_size_bytes for allocation in plan.allocations}
-    assert by_drive[0] == 500
-    assert by_drive[1] == 900
+    assert by_drive[0] == 450
+    assert by_drive[1] == 950
 
 
 def test_assigner_uses_only_remaining_space_on_partially_used_drives() -> None:
