@@ -199,3 +199,94 @@ def test_plan_reports_insufficient_capacity(open_sqlite, tmp_path: Path, capsys)
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "too_large.bin" in captured.err
+
+
+def test_plan_output_is_machine_parseable_json(open_sqlite, tmp_path: Path, capsys) -> None:
+    """Plan output should follow a stable JSON schema for later automation."""
+    db_path = tmp_path / "plan_json_output.db"
+    initialize_database(db_path)
+    source_root = tmp_path / "castle_aaaargh"
+
+    with open_sqlite(db_path) as connection:
+        repository = SnapshotRepository(connection)
+        old_snapshot_id = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "castle_aaaargh/keep.txt",
+                    "size_bytes": 10,
+                    "mtime_ns": 1,
+                    "file_type": "file",
+                },
+                {
+                    "path_rel": "castle_aaaargh/delete.txt",
+                    "size_bytes": 5,
+                    "mtime_ns": 1,
+                    "file_type": "file",
+                },
+            ],
+        )
+        new_snapshot_id = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "castle_aaaargh/keep.txt",
+                    "size_bytes": 10,
+                    "mtime_ns": 1,
+                    "file_type": "file",
+                },
+                {
+                    "path_rel": "castle_aaaargh/add.txt",
+                    "size_bytes": 20,
+                    "mtime_ns": 2,
+                    "file_type": "file",
+                },
+            ],
+        )
+        connection.commit()
+
+    exit_code = main(
+        [
+            "plan",
+            "--db",
+            str(db_path),
+            "--from",
+            str(old_snapshot_id),
+            "--snapshot-id",
+            str(new_snapshot_id),
+            "--drives",
+            "Office-01:100B",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 0
+    assert set(payload) == {
+        "new_snapshot_id",
+        "old_snapshot_id",
+        "diff_summary",
+        "allocation",
+        "total_files_to_allocate",
+        "total_bytes_allocated",
+    }
+    assert payload["new_snapshot_id"] == str(new_snapshot_id)
+    assert payload["old_snapshot_id"] == str(old_snapshot_id)
+    assert payload["diff_summary"] == {
+        "added": 1,
+        "modified": 0,
+        "deleted": 1,
+        "unchanged": 1,
+    }
+    assert payload["total_files_to_allocate"] == 1
+    assert payload["total_bytes_allocated"] == 20
+    assert len(payload["allocation"]) == 1
+    assert set(payload["allocation"][0]) == {
+        "drive_label",
+        "file_count",
+        "size_bytes",
+        "files",
+    }
