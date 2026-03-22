@@ -7,9 +7,11 @@ import json
 import re
 import sqlite3
 import sys
+import warnings
 from contextlib import closing
 from pathlib import Path
 
+from offsite.core.pathing import get_windows_long_path_warning, to_windows_extended_path
 from offsite.core.diff.differ import Differ
 from offsite.core.plan.assigner import Assigner, DriveInfo
 from offsite.core.plan.packer import DriveAllocation
@@ -135,11 +137,18 @@ def _build_plan_payload(
     db_path: Path,
     new_snapshot_id: int,
     from_snapshot_id: int | None,
-    drive_spec: str,
+    drive_spec: str | None = None,
 ) -> dict:
     """Build a machine-parseable plan payload from snapshots and drive specs."""
 
-    with closing(sqlite3.connect(db_path.resolve())) as connection:
+    resolved_db_path = db_path.resolve()
+    warning_text = get_windows_long_path_warning(resolved_db_path)
+    if warning_text:
+        warnings.warn(warning_text, RuntimeWarning, stacklevel=2)
+
+    connect_path = to_windows_extended_path(resolved_db_path)
+    with closing(sqlite3.connect(connect_path)) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
         repository = SnapshotRepository(connection)
         drives = _resolve_planning_drives(repository=repository, drive_spec=drive_spec)
         old_snapshot_id = _resolve_snapshot_range(

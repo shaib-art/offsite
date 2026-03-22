@@ -234,8 +234,8 @@ def test_assigner_raises_when_no_drive_meets_reserved_free_space_rule() -> None:
         assigner.assign(diff_entries=diff_entries, available_drives=drives)
 
 
-def test_assigner_keeps_default_one_byte_reserve_per_drive() -> None:
-    """Default planning should keep policy reserve instead of consuming full free bytes."""
+def test_assigner_keeps_default_reserve_per_drive() -> None:
+    """Default planning should honor max(10 GiB, 2%) reserve policy per drive."""
     assigner = Assigner()
     diff_entries = [
         DiffEntry(

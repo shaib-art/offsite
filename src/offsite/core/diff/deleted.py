@@ -14,5 +14,5 @@ def is_deletion_candidate(
     """Return True when a deletion has aged past the configured retention period."""
     del file_path
     elapsed_ns = evaluation_time_ns - deleted_at_ns
-    elapsed_days = elapsed_ns / (10**9 * 86400)
-    return elapsed_days >= retention_days
+    retention_ns = retention_days * 86400 * 10**9
+    return elapsed_ns >= retention_ns

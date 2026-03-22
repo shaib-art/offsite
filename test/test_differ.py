@@ -310,3 +310,57 @@ def test_differ_sort_is_stable_for_unsorted_snapshot_rows(open_sqlite, tmp_path:
 
     paths = [entry.path.as_posix() for entry in diff_entries]
     assert paths == ["camelot/alpha.txt", "camelot/zebra.txt"]
+
+
+def test_differ_ignores_directory_rows(open_sqlite, tmp_path: Path) -> None:
+    """Directory snapshot rows should not produce diff entries for planning."""
+    db_path = tmp_path / "ignore_dirs.db"
+    initialize_database(db_path)
+
+    with open_sqlite(db_path) as connection:
+        repository = SnapshotRepository(connection)
+        source_root = tmp_path / "holy_grail"
+        old_snapshot_id = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "holy_grail",
+                    "size_bytes": 0,
+                    "mtime_ns": 1,
+                    "file_type": "dir",
+                },
+                {
+                    "path_rel": "holy_grail/keep.txt",
+                    "size_bytes": 10,
+                    "mtime_ns": 2,
+                    "file_type": "file",
+                },
+            ],
+        )
+        new_snapshot_id = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "holy_grail",
+                    "size_bytes": 0,
+                    "mtime_ns": 3,
+                    "file_type": "dir",
+                },
+                {
+                    "path_rel": "holy_grail/keep.txt",
+                    "size_bytes": 10,
+                    "mtime_ns": 2,
+                    "file_type": "file",
+                },
+            ],
+        )
+        connection.commit()
+
+        differ = Differ(repository)
+        diff_entries = differ.diff(old_snapshot_id=old_snapshot_id, new_snapshot_id=new_snapshot_id)
+
+    assert len(diff_entries) == 1
+    assert diff_entries[0].path == Path("holy_grail/keep.txt")
+    assert diff_entries[0].kind == "unchanged"

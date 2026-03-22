@@ -32,8 +32,8 @@ class Differ:
 
     def diff(self, old_snapshot_id: int, new_snapshot_id: int) -> list[DiffEntry]:
         """Load both snapshots from DB, compare rows, and return a path-sorted diff."""
-        old_files = _index_by_path(self._repository.get_snapshot_files(old_snapshot_id))
-        new_files = _index_by_path(self._repository.get_snapshot_files(new_snapshot_id))
+        old_files = _index_by_path(_only_file_rows(self._repository.get_snapshot_files(old_snapshot_id)))
+        new_files = _index_by_path(_only_file_rows(self._repository.get_snapshot_files(new_snapshot_id)))
 
         all_paths = sorted(set(old_files) | set(new_files), key=lambda path: path.as_posix())
 
@@ -119,6 +119,11 @@ class Differ:
 def _index_by_path(files: list[SnapshotFileRecord]) -> dict[Path, SnapshotFileRecord]:
     """Build a lookup keyed by relative path for efficient diff comparison."""
     return {file_record.path: file_record for file_record in files}
+
+
+def _only_file_rows(files: list[SnapshotFileRecord]) -> list[SnapshotFileRecord]:
+    """Return only regular-file rows and ignore directory entries in planning diffs."""
+    return [file_record for file_record in files if file_record.file_type == "file"]
 
 
 def _utc_now_ns() -> int:

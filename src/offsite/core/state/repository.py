@@ -125,7 +125,7 @@ class SnapshotRepository:
         ).fetchone()
         return row is not None
 
-    def get_snapshot_source_root(self, snapshot_id: int) -> str | None:
+    def get_snapshot_source_root(self, snapshot_id: int) -> Path | None:
         """Return source_root for the snapshot id, or None when missing."""
         row = self._connection.execute(
             "SELECT source_root FROM snapshot_run WHERE id = ?",
@@ -133,7 +133,7 @@ class SnapshotRepository:
         ).fetchone()
         if row is None:
             return None
-        return str(row[0])
+        return Path(str(row[0]))
 
     def get_previous_snapshot_id(self, snapshot_id: int) -> int | None:
         """Return most recent earlier successful snapshot for the same source root."""
@@ -150,7 +150,7 @@ class SnapshotRepository:
             ORDER BY id DESC
             LIMIT 1
             """,
-            (source_root, snapshot_id),
+            (source_root.as_posix(), snapshot_id),
         ).fetchone()
         if row is None:
             return None
