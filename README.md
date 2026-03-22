@@ -137,7 +137,7 @@ src/offsite/
     │   └── snapshot.py         # Scan → persist lifecycle orchestration
     └── state/
         ├── db.py               # SQLite schema bootstrap
-    └── repository.py       # snapshot/history/inventory persistence APIs
+        └── repository.py       # snapshot/history/inventory persistence APIs
 ```
 
 ### SQLite schema (Phase 2)
