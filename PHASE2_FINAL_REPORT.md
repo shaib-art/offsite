@@ -138,6 +138,14 @@ src/offsite/core/state/repository.py
   - kept repository API path-first for source-root accessors
   - filtered directory snapshot rows out of planning diff input
   - updated reserve-policy test wording and added regression coverage
+- `0f843c7` (resolved CI lint blockers)
+  - reduced pylint local-variable pressure in plan payload construction
+  - fixed markdown line-length failure in phase report
+- `47d3832` (CI de-duplication cleanup)
+  - kept PR-only workflow trigger
+  - consolidated static analysis to single-OS execution
+  - removed redundant phase2/simulation subset test jobs
+  - preserved both module and global coverage gates in one coverage job
 
 ---
 
@@ -155,17 +163,12 @@ src/offsite/core/state/repository.py
 
 ### GitHub Actions Status (PR #2)
 
-All required checks are green:
+Current streamlined checks:
 
 - meta-lint (super-linter)
 - lint-and-types (ubuntu-latest)
-- lint-and-types (windows-latest)
 - unit-tests (ubuntu-latest)
 - unit-tests (windows-latest)
-- phase2-tests (ubuntu-latest)
-- phase2-tests (windows-latest)
-- simulation-tests (ubuntu-latest)
-- simulation-tests (windows-latest)
 - coverage-gate
 
 ---
@@ -224,8 +227,8 @@ Key behavior:
 |-----------|-------|
 | Branch | `private/shaib/phase2` |
 | PR | #2 Phase 2: Diff planning, Drive assignment |
-| Latest Branch Commit | `0730cde` |
-| CI State | All checks passing |
+| Latest Branch Commit | `47d3832` |
+| CI State | Updated checks rerunning after CI cleanup |
 | Merge Readiness | Ready from implementation/quality perspective |
 
 ---
