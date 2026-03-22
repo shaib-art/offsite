@@ -226,3 +226,67 @@ def test_assigner_raises_when_no_drive_meets_minimum_free_space() -> None:
 
     with pytest.raises(ValueError, match="No eligible drives"):
         assigner.assign(diff_entries=diff_entries, available_drives=drives)
+
+
+def test_assigner_handles_very_large_file_sizes() -> None:
+    """Assignment should support very large files (10GB+) without overflow issues."""
+    assigner = Assigner()
+    eleven_gb = 11 * 1_000_000_000
+    diff_entries = [
+        DiffEntry(
+            path=Path("meaning_of_life/giant_archive.bin"),
+            kind="added",
+            size_bytes=eleven_gb,
+            mtime_ns=1,
+            previous_size=None,
+            previous_mtime_ns=None,
+        )
+    ]
+    drives = [
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=20_000_000_000, free_bytes=20_000_000_000)
+    ]
+
+    plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
+
+    assert plan.total_files == 1
+    assert plan.total_size_bytes == eleven_gb
+
+
+def test_assigner_handles_one_byte_file() -> None:
+    """Assignment should support minimal file size payloads."""
+    assigner = Assigner()
+    diff_entries = [
+        DiffEntry(
+            path=Path("flying_circus/single_byte.txt"),
+            kind="added",
+            size_bytes=1,
+            mtime_ns=1,
+            previous_size=None,
+            previous_mtime_ns=None,
+        )
+    ]
+    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=10, free_bytes=10)]
+
+    plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
+
+    assert plan.total_files == 1
+    assert plan.total_size_bytes == 1
+
+
+def test_assigner_fails_when_only_drive_has_zero_capacity() -> None:
+    """A zero-free drive should fail planning because no eligible drives remain."""
+    assigner = Assigner()
+    diff_entries = [
+        DiffEntry(
+            path=Path("holy_grail/no_space.bin"),
+            kind="added",
+            size_bytes=1,
+            mtime_ns=1,
+            previous_size=None,
+            previous_mtime_ns=None,
+        )
+    ]
+    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=0, free_bytes=0)]
+
+    with pytest.raises(ValueError, match="No eligible drives"):
+        assigner.assign(diff_entries=diff_entries, available_drives=drives)

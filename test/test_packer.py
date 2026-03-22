@@ -146,3 +146,36 @@ def test_packer_reports_exact_failure_reason_for_insufficient_capacity() -> None
         packer.pack(files=[(Path("holy_grail.iso"), 120)], bins=bins)
 
     assert "120" in str(error.value)
+
+
+def test_packer_fails_when_single_file_larger_than_only_drive_free_space() -> None:
+    """Packing should fail if one file cannot fit into the only available drive."""
+    packer = BinPacker()
+    files = [(Path("ministry/larger_than_disk.bin"), 2_000_000_000)]
+    bins = [Bin(drive_index=0, remaining_bytes=1_000_000_000)]
+
+    with pytest.raises(ValueError, match="larger_than_disk.bin"):
+        packer.pack(files=files, bins=bins)
+
+
+def test_packer_allows_exact_capacity_fit_for_single_file() -> None:
+    """Packing should succeed when a file exactly matches remaining capacity."""
+    packer = BinPacker()
+    files = [(Path("ministry/exact_fit.bin"), 1_000)]
+    bins = [Bin(drive_index=0, remaining_bytes=1_000)]
+
+    allocations = packer.pack(files=files, bins=bins)
+
+    assert len(allocations) == 1
+    assert allocations[0].files == [Path("ministry/exact_fit.bin")]
+    assert allocations[0].total_size_bytes == 1_000
+
+
+def test_packer_rejects_zero_capacity_bin_for_non_empty_files() -> None:
+    """A zero-capacity drive cannot receive any non-empty file payload."""
+    packer = BinPacker()
+    files = [(Path("ministry/no_space.bin"), 1)]
+    bins = [Bin(drive_index=0, remaining_bytes=0)]
+
+    with pytest.raises(ValueError, match="no_space.bin"):
+        packer.pack(files=files, bins=bins)
