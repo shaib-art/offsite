@@ -3,9 +3,20 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+@dataclass(frozen=True)
+class SnapshotFileRecord:
+    """A persisted file row associated with a snapshot run."""
+
+    path: Path
+    size_bytes: int
+    mtime_ns: int
+    file_type: str
 
 
 class SnapshotRepository:
@@ -74,6 +85,27 @@ class SnapshotRepository:
             """,
             payload,
         )
+
+    def get_snapshot_files(self, snapshot_id: int) -> list[SnapshotFileRecord]:
+        """Return all persisted files for a snapshot id ordered by relative path."""
+        rows = self._connection.execute(
+            """
+            SELECT path_rel, size_bytes, mtime_ns, file_type
+            FROM snapshot_file
+            WHERE snapshot_id = ?
+            ORDER BY path_rel ASC
+            """,
+            (snapshot_id,),
+        ).fetchall()
+        return [
+            SnapshotFileRecord(
+                path=Path(path_rel),
+                size_bytes=size_bytes,
+                mtime_ns=mtime_ns,
+                file_type=file_type,
+            )
+            for path_rel, size_bytes, mtime_ns, file_type in rows
+        ]
 
 
 def _utc_now_text() -> str:
