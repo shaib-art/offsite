@@ -33,9 +33,10 @@ class AssignmentPlan:
 class Assigner:
     """Build an allocation plan from diff entries and drive metadata."""
 
-    def __init__(self, packer: BinPacker | None = None) -> None:
-        """Create an assigner with an optional custom packer strategy."""
+    def __init__(self, packer: BinPacker | None = None, min_free_bytes: int = 1) -> None:
+        """Create an assigner with optional custom packer strategy and free-space floor."""
         self._packer = packer or BinPacker()
+        self._min_free_bytes = min_free_bytes
 
     def assign(self, diff_entries: list[DiffEntry], available_drives: list[DriveInfo]) -> AssignmentPlan:
         """Assign changed files to drives or raise when capacity is insufficient."""
@@ -56,7 +57,17 @@ class Assigner:
                 drives_needed=0,
             )
 
-        bins = [Bin(drive_index=drive.index, remaining_bytes=drive.free_bytes) for drive in available_drives]
+        eligible_drives = [
+            drive
+            for drive in available_drives
+            if drive.free_bytes >= self._min_free_bytes
+        ]
+        if not eligible_drives:
+            raise ValueError(
+                f"No eligible drives with at least {self._min_free_bytes} free bytes"
+            )
+
+        bins = [Bin(drive_index=drive.index, remaining_bytes=drive.free_bytes) for drive in eligible_drives]
         remapped_allocations = self._packer.pack(files=files_to_allocate, bins=bins)
 
         return AssignmentPlan(
@@ -74,7 +85,7 @@ def _validate_drives(available_drives: list[DriveInfo]) -> None:
     if not available_drives:
         raise ValueError("At least one drive is required for assignment")
     for drive in available_drives:
-        if drive.free_bytes <= 0:
-            raise ValueError("Drive free bytes must be greater than zero")
+        if drive.free_bytes < 0:
+            raise ValueError("Drive free bytes cannot be negative")
         if drive.free_bytes > drive.capacity_bytes:
             raise ValueError("Drive free bytes cannot exceed total capacity")

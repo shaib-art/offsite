@@ -141,6 +141,31 @@ def test_assigner_uses_only_remaining_space_on_partially_used_drives() -> None:
     assert len(plan.allocations) == 2
 
 
+def test_assigner_ignores_full_drives_when_others_can_fit() -> None:
+    """A full drive should be ignored rather than causing assignment failure."""
+    assigner = Assigner()
+    diff_entries = [
+        DiffEntry(
+            path=Path("flying_circus/new_clip.bin"),
+            kind="added",
+            size_bytes=40,
+            mtime_ns=1,
+            previous_size=None,
+            previous_mtime_ns=None,
+        ),
+    ]
+    drives = [
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=0),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500, free_bytes=100),
+    ]
+
+    plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
+
+    assert len(plan.allocations) == 1
+    assert plan.allocations[0].drive_index == 1
+    assert plan.allocations[0].total_size_bytes == 40
+
+
 def test_assigner_raises_when_files_do_not_fit_available_drives() -> None:
     """Assigner should fail with exact reason when no drive can fit a file."""
     assigner = Assigner()
@@ -163,7 +188,7 @@ def test_assigner_raises_when_files_do_not_fit_available_drives() -> None:
 
 
 def test_assigner_raises_for_invalid_drive_free_space() -> None:
-    """Drive free space cannot be zero or negative for assignment planning."""
+    """Negative free space should be rejected as invalid drive metadata."""
     assigner = Assigner()
     diff_entries = [
         DiffEntry(
@@ -175,7 +200,29 @@ def test_assigner_raises_for_invalid_drive_free_space() -> None:
             previous_mtime_ns=None,
         )
     ]
-    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=100, free_bytes=0)]
+    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=100, free_bytes=-1)]
 
-    with pytest.raises(ValueError, match="free bytes"):
+    with pytest.raises(ValueError, match="negative"):
+        assigner.assign(diff_entries=diff_entries, available_drives=drives)
+
+
+def test_assigner_raises_when_no_drive_meets_minimum_free_space() -> None:
+    """If all drives are below threshold, planning should fail with a clear reason."""
+    assigner = Assigner(min_free_bytes=64)
+    diff_entries = [
+        DiffEntry(
+            path=Path("camelot/new_file.bin"),
+            kind="added",
+            size_bytes=10,
+            mtime_ns=1,
+            previous_size=None,
+            previous_mtime_ns=None,
+        )
+    ]
+    drives = [
+        DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=0),
+        DriveInfo(index=1, label="Office-HDD-02", capacity_bytes=500, free_bytes=32),
+    ]
+
+    with pytest.raises(ValueError, match="No eligible drives"):
         assigner.assign(diff_entries=diff_entries, available_drives=drives)
