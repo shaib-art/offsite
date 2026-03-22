@@ -8,6 +8,9 @@ from offsite.core.diff.differ import DiffEntry
 from offsite.core.plan.packer import Bin, BinPacker, DriveAllocation
 
 
+_RESERVED_FREE_BYTES = 1
+
+
 @dataclass(frozen=True)
 class DriveInfo:
     """Metadata describing an available destination drive."""
@@ -33,10 +36,9 @@ class AssignmentPlan:
 class Assigner:
     """Build an allocation plan from diff entries and drive metadata."""
 
-    def __init__(self, packer: BinPacker | None = None, min_free_bytes: int = 1) -> None:
-        """Create an assigner with optional custom packer strategy and per-drive reserve."""
+    def __init__(self, packer: BinPacker | None = None) -> None:
+        """Create an assigner with optional custom packer strategy."""
         self._packer = packer or BinPacker()
-        self._min_free_bytes = min_free_bytes
 
     def assign(self, diff_entries: list[DiffEntry], available_drives: list[DriveInfo]) -> AssignmentPlan:
         """Assign changed files to drives or raise when capacity is insufficient."""
@@ -60,17 +62,17 @@ class Assigner:
         eligible_drives = [
             drive
             for drive in available_drives
-            if drive.free_bytes > self._min_free_bytes
+            if drive.free_bytes > _RESERVED_FREE_BYTES
         ]
         if not eligible_drives:
             raise ValueError(
-                f"No eligible drives with more than {self._min_free_bytes} reserved free bytes"
+                f"No eligible drives with more than {_RESERVED_FREE_BYTES} reserved free bytes"
             )
 
         bins = [
             Bin(
                 drive_index=drive.index,
-                remaining_bytes=drive.free_bytes - self._min_free_bytes,
+                remaining_bytes=drive.free_bytes - _RESERVED_FREE_BYTES,
             )
             for drive in eligible_drives
         ]
