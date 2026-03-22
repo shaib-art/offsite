@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
+from offsite.core.diff.deleted import is_deletion_candidate
 from offsite.core.state.repository import SnapshotFileRecord, SnapshotRepository
 
 
@@ -87,7 +89,38 @@ class Differ:
 
         return output
 
+    def get_deletable_files(
+        self,
+        old_snapshot_id: int,
+        new_snapshot_id: int,
+        evaluation_time_ns: int | None = None,
+        retention_days: int = 30,
+    ) -> list[DiffEntry]:
+        """Return deleted diff entries that have aged beyond the retention policy."""
+        now_ns = _utc_now_ns() if evaluation_time_ns is None else evaluation_time_ns
+        deleted_entries = [
+            entry
+            for entry in self.diff(old_snapshot_id=old_snapshot_id, new_snapshot_id=new_snapshot_id)
+            if entry.kind == "deleted"
+        ]
+        return [
+            entry
+            for entry in deleted_entries
+            if entry.previous_mtime_ns is not None
+            and is_deletion_candidate(
+                file_path=entry.path,
+                deleted_at_ns=entry.previous_mtime_ns,
+                evaluation_time_ns=now_ns,
+                retention_days=retention_days,
+            )
+        ]
+
 
 def _index_by_path(files: list[SnapshotFileRecord]) -> dict[Path, SnapshotFileRecord]:
     """Build a lookup keyed by relative path for efficient diff comparison."""
     return {file_record.path: file_record for file_record in files}
+
+
+def _utc_now_ns() -> int:
+    """Return current UTC time in nanoseconds for deletion-gate evaluation."""
+    return int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
