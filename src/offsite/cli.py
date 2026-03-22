@@ -12,6 +12,7 @@ from pathlib import Path
 
 from offsite.core.diff.differ import Differ
 from offsite.core.plan.assigner import Assigner, DriveInfo
+from offsite.core.plan.packer import DriveAllocation
 from offsite.core.scan.snapshot import execute_snapshot_run
 from offsite.core.state.db import initialize_database
 from offsite.core.state.repository import SnapshotRepository
@@ -142,46 +143,65 @@ def _build_plan_payload(
 
     with closing(sqlite3.connect(db_path.resolve())) as connection:
         repository = SnapshotRepository(connection)
-        if not repository.snapshot_exists(new_snapshot_id):
-            raise ValueError(f"Snapshot id {new_snapshot_id} does not exist")
-
-        old_snapshot_id = from_snapshot_id
-        if old_snapshot_id is None:
-            old_snapshot_id = repository.get_previous_snapshot_id(new_snapshot_id)
-        if old_snapshot_id is None:
-            raise ValueError("No previous snapshot available; pass --from explicitly")
-        if not repository.snapshot_exists(old_snapshot_id):
-            raise ValueError(f"Snapshot id {old_snapshot_id} does not exist")
+        old_snapshot_id = _resolve_snapshot_range(
+            repository=repository,
+            new_snapshot_id=new_snapshot_id,
+            from_snapshot_id=from_snapshot_id,
+        )
 
         differ = Differ(repository)
         diff_entries = differ.diff(old_snapshot_id=old_snapshot_id, new_snapshot_id=new_snapshot_id)
 
     assigner = Assigner()
     plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
-    drive_labels = {drive.index: drive.label for drive in drives}
-
     summary = {"added": 0, "modified": 0, "deleted": 0, "unchanged": 0}
     for entry in diff_entries:
         summary[entry.kind] += 1
 
-    allocation_payload = [
+    return {
+        "new_snapshot_id": str(new_snapshot_id),
+        "old_snapshot_id": str(old_snapshot_id),
+        "diff_summary": summary,
+        "allocation": _build_allocation_payload(plan.allocations, drives),
+        "total_files_to_allocate": plan.total_files,
+        "total_bytes_allocated": plan.total_size_bytes,
+    }
+
+
+def _resolve_snapshot_range(
+    repository: SnapshotRepository,
+    new_snapshot_id: int,
+    from_snapshot_id: int | None,
+) -> int:
+    """Resolve old/new snapshot ids and validate both rows exist."""
+    if not repository.snapshot_exists(new_snapshot_id):
+        raise ValueError(f"Snapshot id {new_snapshot_id} does not exist")
+
+    old_snapshot_id = from_snapshot_id
+    if old_snapshot_id is None:
+        old_snapshot_id = repository.get_previous_snapshot_id(new_snapshot_id)
+    if old_snapshot_id is None:
+        raise ValueError("No previous snapshot available; pass --from explicitly")
+    if not repository.snapshot_exists(old_snapshot_id):
+        raise ValueError(f"Snapshot id {old_snapshot_id} does not exist")
+    return old_snapshot_id
+
+
+def _build_allocation_payload(
+    allocations: list[DriveAllocation],
+    drives: list[DriveInfo],
+) -> list[dict[str, object]]:
+    """Build allocation rows with human-readable labels and file lists."""
+    drive_labels = {drive.index: drive.label for drive in drives}
+    return [
         {
             "drive_label": drive_labels[allocation.drive_index],
             "file_count": len(allocation.files),
             "size_bytes": allocation.total_size_bytes,
             "files": [path.as_posix() for path in allocation.files],
         }
-        for allocation in plan.allocations
+        for allocation in allocations
     ]
-
-    return {
-        "new_snapshot_id": str(new_snapshot_id),
-        "old_snapshot_id": str(old_snapshot_id),
-        "diff_summary": summary,
-        "allocation": allocation_payload,
-        "total_files_to_allocate": plan.total_files,
-        "total_bytes_allocated": plan.total_size_bytes,
-    }
 
 
 def _parse_drive_spec(drive_spec: str) -> list[DriveInfo]:
