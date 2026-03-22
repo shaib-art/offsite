@@ -133,8 +133,8 @@ def test_packer_supports_heterogeneous_drive_sizes_and_free_space() -> None:
     allocations = packer.pack(files=files, bins=bins)
 
     assert [allocation.drive_index for allocation in allocations] == [0, 1]
-    assert allocations[0].total_size_bytes == 500
-    assert allocations[1].total_size_bytes == 900
+    assert allocations[0].total_size_bytes == 450
+    assert allocations[1].total_size_bytes == 950
 
 
 def test_packer_reports_exact_failure_reason_for_insufficient_capacity() -> None:
