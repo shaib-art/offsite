@@ -89,4 +89,5 @@ class Differ:
 
 
 def _index_by_path(files: list[SnapshotFileRecord]) -> dict[Path, SnapshotFileRecord]:
+    """Build a lookup keyed by relative path for efficient diff comparison."""
     return {file_record.path: file_record for file_record in files}
