@@ -228,6 +228,46 @@ def test_assigner_raises_when_no_drive_meets_minimum_free_space() -> None:
         assigner.assign(diff_entries=diff_entries, available_drives=drives)
 
 
+def test_assigner_keeps_default_one_byte_reserve_per_drive() -> None:
+    """Default planning should avoid consuming a drive's final free byte."""
+    assigner = Assigner()
+    diff_entries = [
+        DiffEntry(
+            path=Path("ministry/exact_fit.bin"),
+            kind="added",
+            size_bytes=100,
+            mtime_ns=1,
+            previous_size=None,
+            previous_mtime_ns=None,
+        )
+    ]
+    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=100)]
+
+    with pytest.raises(ValueError, match="exact_fit.bin"):
+        assigner.assign(diff_entries=diff_entries, available_drives=drives)
+
+
+def test_assigner_can_allow_full_free_space_consumption_when_reserve_disabled() -> None:
+    """Setting reserve to zero can opt into exact-fit placement when explicitly requested."""
+    assigner = Assigner(min_free_bytes=0)
+    diff_entries = [
+        DiffEntry(
+            path=Path("ministry/exact_fit.bin"),
+            kind="added",
+            size_bytes=100,
+            mtime_ns=1,
+            previous_size=None,
+            previous_mtime_ns=None,
+        )
+    ]
+    drives = [DriveInfo(index=0, label="Office-HDD-01", capacity_bytes=500, free_bytes=100)]
+
+    plan = assigner.assign(diff_entries=diff_entries, available_drives=drives)
+
+    assert plan.total_files == 1
+    assert plan.total_size_bytes == 100
+
+
 def test_assigner_handles_very_large_file_sizes() -> None:
     """Assignment should support very large files (10GB+) without overflow issues."""
     assigner = Assigner()

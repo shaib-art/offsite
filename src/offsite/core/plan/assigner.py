@@ -34,7 +34,7 @@ class Assigner:
     """Build an allocation plan from diff entries and drive metadata."""
 
     def __init__(self, packer: BinPacker | None = None, min_free_bytes: int = 1) -> None:
-        """Create an assigner with optional custom packer strategy and free-space floor."""
+        """Create an assigner with optional custom packer strategy and per-drive reserve."""
         self._packer = packer or BinPacker()
         self._min_free_bytes = min_free_bytes
 
@@ -60,14 +60,20 @@ class Assigner:
         eligible_drives = [
             drive
             for drive in available_drives
-            if drive.free_bytes >= self._min_free_bytes
+            if drive.free_bytes > self._min_free_bytes
         ]
         if not eligible_drives:
             raise ValueError(
-                f"No eligible drives with at least {self._min_free_bytes} free bytes"
+                f"No eligible drives with more than {self._min_free_bytes} reserved free bytes"
             )
 
-        bins = [Bin(drive_index=drive.index, remaining_bytes=drive.free_bytes) for drive in eligible_drives]
+        bins = [
+            Bin(
+                drive_index=drive.index,
+                remaining_bytes=drive.free_bytes - self._min_free_bytes,
+            )
+            for drive in eligible_drives
+        ]
         remapped_allocations = self._packer.pack(files=files_to_allocate, bins=bins)
 
         return AssignmentPlan(

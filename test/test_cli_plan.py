@@ -246,6 +246,58 @@ def test_plan_reports_insufficient_capacity(open_sqlite, tmp_path: Path, capsys)
     assert "too_large.bin" in captured.err
 
 
+def test_plan_rejects_exact_fit_when_default_reserve_applies(
+    open_sqlite,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    """Plan should keep a safety reserve and reject exact free-space consumption."""
+    db_path = tmp_path / "plan_exact_fit_reserve.db"
+    initialize_database(db_path)
+    source_root = tmp_path / "ministry"
+
+    with open_sqlite(db_path) as connection:
+        repository = SnapshotRepository(connection)
+        old_snapshot_id = _seed_snapshot(repository, source_root, [])
+        new_snapshot_id = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "ministry/exact_fit.bin",
+                    "size_bytes": 100,
+                    "mtime_ns": 1,
+                    "file_type": "file",
+                },
+            ],
+        )
+        connection.commit()
+
+    _seed_apply_and_inventory(
+        db_path,
+        snapshot_id=old_snapshot_id,
+        drives=[("Office-01", 100, 100)],
+    )
+
+    exit_code = main(
+        [
+            "plan",
+            "--db",
+            str(db_path),
+            "--from",
+            str(old_snapshot_id),
+            "--snapshot-id",
+            str(new_snapshot_id),
+            "--drives",
+            "Office-01:100B",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "exact_fit.bin" in captured.err
+
+
 def test_plan_fails_when_inventory_sync_state_is_missing(
     open_sqlite,
     tmp_path: Path,
