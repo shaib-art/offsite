@@ -107,6 +107,45 @@ class SnapshotRepository:
             for path_rel, size_bytes, mtime_ns, file_type in rows
         ]
 
+    def snapshot_exists(self, snapshot_id: int) -> bool:
+        """Return True when a snapshot_run row exists for the given id."""
+        row = self._connection.execute(
+            "SELECT 1 FROM snapshot_run WHERE id = ? LIMIT 1",
+            (snapshot_id,),
+        ).fetchone()
+        return row is not None
+
+    def get_snapshot_source_root(self, snapshot_id: int) -> str | None:
+        """Return source_root for the snapshot id, or None when missing."""
+        row = self._connection.execute(
+            "SELECT source_root FROM snapshot_run WHERE id = ?",
+            (snapshot_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return str(row[0])
+
+    def get_previous_snapshot_id(self, snapshot_id: int) -> int | None:
+        """Return most recent earlier successful snapshot for the same source root."""
+        source_root = self.get_snapshot_source_root(snapshot_id)
+        if source_root is None:
+            return None
+        row = self._connection.execute(
+            """
+            SELECT id
+            FROM snapshot_run
+            WHERE source_root = ?
+              AND status = 'ok'
+              AND id < ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (source_root, snapshot_id),
+        ).fetchone()
+        if row is None:
+            return None
+        return int(row[0])
+
 
 def _utc_now_text() -> str:
     return datetime.now(timezone.utc).isoformat()
