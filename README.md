@@ -125,22 +125,29 @@ src/offsite/
 ├── cli.py                      # Argument parsing and subcommand dispatch
 └── core/
     ├── pathing.py              # Cross-platform path utilities (Windows long-path)
-  ├── diff/
-  │   ├── deleted.py          # Deletion retention helpers
-  │   └── differ.py           # Snapshot-to-snapshot diff generation
-  ├── plan/
-  │   ├── packer.py           # First-fit decreasing bin packing
-  │   └── assigner.py         # Reserve-aware drive assignment planning
+    ├── diff/
+    │   ├── deleted.py          # Deletion retention helpers
+    │   └── differ.py           # Snapshot-to-snapshot diff generation
+    ├── plan/
+    │   ├── packer.py           # First-fit decreasing bin packing
+    │   └── assigner.py         # Reserve-aware drive assignment planning
+    ├── upload/
+    │   └── executor.py         # Retry/resume upload + manifest emission
+    ├── integrity/
+    │   └── checksum.py         # SHA-256 verification primitives
+    ├── apply_sync/
+    │   ├── contract.py         # Immutable apply-result envelope
+    │   └── ingest.py           # Home-side ingest and state updates
     ├── scan/
     │   ├── filtering.py        # Include/exclude folder rule matching
     │   ├── scanner.py          # Recursive filesystem traversal
     │   └── snapshot.py         # Scan → persist lifecycle orchestration
     └── state/
-        ├── db.py               # SQLite schema bootstrap
-        └── repository.py       # snapshot/history/inventory persistence APIs
+        ├── db.py               # SQLite schema bootstrap + additive migration
+        └── repository.py       # snapshot/history/inventory/placement APIs
 ```
 
-### SQLite schema (Phase 2)
+### SQLite schema (Phase 3)
 
 **`snapshot_run`** — one row per scan invocation
 
@@ -164,13 +171,18 @@ src/offsite/
 | `file_type` | TEXT | `file` or `dir` |
 | `hash_sha256` | TEXT | Reserved for integrity phases |
 
-**`office_apply_result`** — latest office-side apply synchronization marker
+**`office_apply_result`** — office apply sync history and immutable envelope metadata
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | INTEGER PK | Auto-increment |
 | `applied_snapshot_id` | INTEGER FK | References `snapshot_run.id` |
 | `applied_at` | TEXT | ISO-8601 UTC |
+| `apply_run_id` | TEXT | Immutable apply run id (unique when present) |
+| `source_plan_id` | TEXT | Source plan identifier |
+| `uploaded_run_id` | TEXT | Related upload run id |
+| `completed_at` | TEXT | Office completion timestamp |
+| `envelope_sha256` | TEXT | Immutable envelope integrity hash (unique when present) |
 
 **`home_drive_inventory`** — persisted home-side drive inventory snapshot
 
@@ -180,6 +192,18 @@ src/offsite/
 | `capacity_bytes` | INTEGER | Total capacity |
 | `free_bytes` | INTEGER | Current free bytes |
 | `apply_result_id` | INTEGER FK | References `office_apply_result.id`; with `drive_label` forms composite primary key |
+
+**`placement_index`** — current file-to-drive/version mapping state
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `path_rel` | TEXT PK | Relative file path |
+| `drive_label` | TEXT | Current drive label |
+| `version_token` | TEXT | Version mapping token from apply result |
+| `content_sha256` | TEXT | Content hash for mapping version |
+| `size_bytes` | INTEGER | Recorded mapped size |
+| `apply_result_id` | INTEGER FK | References `office_apply_result.id` |
+| `updated_at` | TEXT | Last ingest timestamp |
 
 ---
 
@@ -239,41 +263,39 @@ src/offsite/
 ### Current branch
 
 - Branch: `main`
-- Phase 2 implementation merged
+- Phase 3 implementation merged locally (report generated)
 
-### Phase 2 — Diff planning and drive assignment
+### Phase 3 — Upload and apply-sync pipeline
 
-**Delivered scope:** deterministic snapshot diffing, deletion-retention gating,
-reserve-aware drive assignment planning, inventory-backed `plan` CLI, and CI
-quality/coverage enforcement.
+**Delivered scope:** upload execution with retry/resume and checksum verification,
+immutable office apply-result envelope, home ingest updating inventory and placement
+index, and stale-ingest guardrails for `plan`.
 
 #### Completed iterations
 
 | # | Scope | Status |
 |---|-------|--------|
-| 1 | Diff generation foundation | COMPLETE |
-| 2 | Deletion retention and deletable gate | COMPLETE |
-| 3 | Packing/assignment over heterogeneous drives | COMPLETE |
-| 4 | `plan` CLI wiring + inventory-first behavior | COMPLETE |
-| 5 | Edge-case hardening + phase-module confidence | COMPLETE |
-| 6 | CI expansion + simulation coverage evolution | COMPLETE |
+| 1 | Upload executor with retry/resume + checksum verification | COMPLETE |
+| 2 | Immutable apply-result contract and validation | COMPLETE |
+| 3 | Home ingest + idempotent state updates | COMPLETE |
+| 4 | Plan stale-ingest enforcement + CI critical gate update | COMPLETE |
 
 #### Current test / coverage snapshot
 
-- **77 tests passing**, 0 failures
-- **92.34% overall coverage** (gate >=85%)
-- **95.89% phase-module coverage** for `offsite.core.diff` + `offsite.core.plan` (gate >=90%)
+- **91 tests passing**, 0 failures
+- **90.55% overall coverage** (gate >=85%)
+- **92.65% critical coverage** for `offsite.core.upload` + `offsite.core.apply_sync` + `offsite.core.integrity` (gate >=90%)
 
 #### Key implemented policy decisions
 
-- CLI framework verdict: keep `argparse` for Phase 2.
+- CLI framework verdict: keep `argparse` for Phase 3.
 - Planning reserve policy: `max(10 GiB, 2% capacity)` per drive (non-overridable).
 - Planning default: persisted inventory first; explicit `--drives` remains override.
-- CI cleanup: PR-only workflow triggers; static analysis deduplicated to single OS;
-  cross-OS runtime tests retained.
+- Upload run IDs are deterministic from plan + source root when not explicitly provided.
+- Apply-result envelopes are immutable via embedded `envelope_sha256` integrity hash.
 
-#### Pending / next steps (Phase 3 candidates)
+#### Pending / next steps (Phase 4 candidates)
 
-- Apply/copy execution pipeline based on generated plan.
-- Integrity hashing/verification lifecycle (`hash_sha256` activation).
-- Restore/reconciliation workflows and failure recovery UX.
+- Restore/recovery workflow contract and replay-safe executor.
+- Persistent upload/apply checkpoints for cross-process resume.
+- Envelope schema version migration strategy beyond schema v1.
