@@ -41,7 +41,7 @@ def execute_upload(
     run_id: str | None = None,
     retries: int = 2,
     copy_file: CopyFile | None = None,
-) -> UploadExecutionResult:  # pylint: disable=too-many-locals
+) -> UploadExecutionResult:
     """Upload plan files into transport storage with integrity checks."""
     _validate_plan_payload(plan_payload)
     if retries < 0:

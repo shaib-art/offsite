@@ -2,7 +2,9 @@
 
 import sqlite3
 
-from offsite.core.state.db import initialize_database
+import pytest
+
+from offsite.core.state.db import _ensure_column, initialize_database
 
 
 def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
@@ -87,3 +89,33 @@ def test_initialize_database_has_required_columns(tmp_path, open_sqlite):
         "apply_result_id",
         "updated_at",
     } <= placement_columns
+
+
+def test_ensure_column_rejects_unknown_table_name(tmp_path, open_sqlite):
+    """Migration helper should reject non-whitelisted table names."""
+    db_path = tmp_path / "argument_safety.db"
+    initialize_database(db_path)
+
+    with open_sqlite(db_path) as conn:
+        with pytest.raises(ValueError, match="Unsupported migration table"):
+            _ensure_column(conn, "office_apply_result;DROP TABLE snapshot_run", "x", "TEXT")
+
+
+def test_ensure_column_rejects_unknown_column_name(tmp_path, open_sqlite):
+    """Migration helper should reject non-whitelisted migration columns."""
+    db_path = tmp_path / "column_name_safety.db"
+    initialize_database(db_path)
+
+    with open_sqlite(db_path) as conn:
+        with pytest.raises(ValueError, match="Unsupported migration column"):
+            _ensure_column(conn, "office_apply_result", "bad_column", "TEXT")
+
+
+def test_ensure_column_rejects_unsupported_column_type(tmp_path, open_sqlite):
+    """Migration helper should reject unsupported SQL types."""
+    db_path = tmp_path / "column_type_safety.db"
+    initialize_database(db_path)
+
+    with open_sqlite(db_path) as conn:
+        with pytest.raises(ValueError, match="Unsupported migration column type"):
+            _ensure_column(conn, "office_apply_result", "apply_run_id", "TEXT;DROP")

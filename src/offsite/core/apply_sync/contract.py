@@ -38,7 +38,7 @@ def build_apply_result_envelope(
     file_mappings: list[dict[str, Any]],
     failures: list[dict[str, Any]],
     integrity_summary: dict[str, Any],
-) -> dict[str, Any]:  # pylint: disable=too-many-arguments,too-many-positional-arguments
+) -> dict[str, Any]:
     """Build an immutable apply-result envelope with deterministic hash."""
     payload = {
         "schema_version": 1,

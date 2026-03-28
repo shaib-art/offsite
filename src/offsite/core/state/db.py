@@ -70,6 +70,32 @@ ON office_apply_result (envelope_sha256)
 WHERE envelope_sha256 IS NOT NULL;
 """
 
+ALLOWED_MIGRATION_TABLES = {
+    "snapshot_run",
+    "snapshot_file",
+    "office_apply_result",
+    "home_drive_inventory",
+    "placement_index",
+}
+
+ALLOWED_MIGRATION_COLUMNS = {
+    "office_apply_result": {
+        "apply_run_id",
+        "source_plan_id",
+        "uploaded_run_id",
+        "completed_at",
+        "envelope_sha256",
+    }
+}
+
+ALLOWED_COLUMN_TYPES = {
+    "TEXT",
+    "INTEGER",
+    "REAL",
+    "BLOB",
+    "NUMERIC",
+}
+
 
 def initialize_database(db_path: Path) -> None:
     """Initialize the phase-1 SQLite schema at the requested path."""
@@ -126,6 +152,19 @@ def _ensure_column(
     column_type: str,
 ) -> None:
     """Add table column when missing to support additive schema evolution."""
+    if table_name not in ALLOWED_MIGRATION_TABLES:
+        raise ValueError(f"Unsupported migration table: {table_name}")
+
+    allowed_columns = ALLOWED_MIGRATION_COLUMNS.get(table_name, set())
+    if column_name not in allowed_columns:
+        raise ValueError(
+            f"Unsupported migration column {column_name!r} for table {table_name!r}"
+        )
+
+    normalized_column_type = column_type.upper()
+    if normalized_column_type not in ALLOWED_COLUMN_TYPES:
+        raise ValueError(f"Unsupported migration column type: {column_type}")
+
     existing_columns = {
         str(row[1])
         for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()
@@ -133,5 +172,5 @@ def _ensure_column(
     if column_name in existing_columns:
         return
     conn.execute(
-        f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"
+        f"ALTER TABLE {table_name} ADD COLUMN {column_name} {normalized_column_type}"
     )
