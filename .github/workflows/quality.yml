@@ -45,21 +45,18 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies
         run: python -m pip install --upgrade pip && pip install -r requirements_dev.txt
-      - name: Phase 2 module coverage gate (>=90%)
+      - name: Phase 3 critical module coverage gate (>=90%)
         env:
           PYTHONPATH: src
         run: >-
           pytest
-          --cov=offsite.core.diff
-          --cov=offsite.core.plan
+          --cov=offsite.core.upload
+          --cov=offsite.core.apply_sync
+          --cov=offsite.core.integrity
           --cov-fail-under=90
           --cov-report=term-missing
-          test/test_differ.py
-          test/test_deleted.py
-          test/test_packer.py
-          test/test_assigner.py
-          test/test_plan_workflow.py
-          tests/integration/test_plan_workflow.py
+          test/test_upload.py
+          test/test_apply_sync.py
       - name: Coverage gate (>=85%)
         env:
           PYTHONPATH: src

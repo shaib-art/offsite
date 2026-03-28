@@ -12,12 +12,14 @@ from contextlib import closing
 from pathlib import Path
 
 from offsite.core.pathing import get_windows_long_path_warning, to_windows_extended_path
+from offsite.core.apply_sync.ingest import ingest_apply_result
 from offsite.core.diff.differ import DiffEntry, Differ
 from offsite.core.plan.assigner import Assigner, DriveInfo
 from offsite.core.plan.packer import DriveAllocation
 from offsite.core.scan.snapshot import execute_snapshot_run
 from offsite.core.state.db import initialize_database
 from offsite.core.state.repository import SnapshotRepository
+from offsite.core.upload.executor import execute_upload
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -82,10 +84,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to SQLite DB file",
     )
 
+    upload = subparsers.add_parser("upload", help="Upload plan payloads to transport storage")
+    upload.add_argument("--plan", type=Path, required=True, help="Path to plan JSON payload")
+    upload.add_argument("--source", type=Path, required=True, help="Source root for payload files")
+    upload.add_argument(
+        "--transport",
+        type=Path,
+        required=True,
+        help="Transport root where payload and manifest are written",
+    )
+    upload.add_argument("--run-id", help="Optional deterministic run id override")
+    upload.add_argument(
+        "--retries",
+        type=int,
+        default=2,
+        help="Retry attempts for transient copy failures",
+    )
+
+    ingest = subparsers.add_parser(
+        "ingest-apply-result",
+        help="Ingest immutable office apply-result into home state",
+    )
+    ingest.add_argument("--result", type=Path, required=True, help="Path to apply-result JSON")
+    ingest.add_argument(
+        "--db",
+        type=Path,
+        default=Path(".offsite/state.db"),
+        help="Path to SQLite DB file",
+    )
+
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # pylint: disable=too-many-return-statements
     """Execute the CLI command and return a process exit code."""
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -97,16 +128,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "scan":
         initialize_database(args.db)
-        result = execute_snapshot_run(
+        scan_result = execute_snapshot_run(
             db_path=args.db,
             source_root=args.source,
             include_folders=args.include_folders,
             exclude_folders=args.exclude_folders,
         )
-        if result.status == "ok":
-            print(f"Scan complete: run_id={result.run_id}")
+        if scan_result.status == "ok":
+            print(f"Scan complete: run_id={scan_result.run_id}")
             return 0
-        print(f"Scan failed: run_id={result.run_id}", file=sys.stderr)
+        print(f"Scan failed: run_id={scan_result.run_id}", file=sys.stderr)
         return 1
 
     if args.command == "plan":
@@ -125,6 +156,55 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload))
         return 0
 
+    if args.command == "upload":
+        try:
+            plan_payload = json.loads(args.plan.read_text(encoding="utf-8"))
+            if not isinstance(plan_payload, dict):
+                raise ValueError("Plan payload must be a JSON object")
+            upload_result = execute_upload(
+                plan_payload=plan_payload,
+                source_root=args.source,
+                transport_root=args.transport,
+                run_id=args.run_id,
+                retries=args.retries,
+            )
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+        print(
+            json.dumps(
+                {
+                    "run_id": upload_result.run_id,
+                    "source_plan_id": upload_result.source_plan_id,
+                    "copied_files": upload_result.copied_files,
+                    "skipped_files": upload_result.skipped_files,
+                    "verified_files": upload_result.verified_files,
+                    "retry_events": upload_result.retry_events,
+                    "manifest_path": upload_result.manifest_path.as_posix(),
+                }
+            )
+        )
+        return 0
+
+    if args.command == "ingest-apply-result":
+        initialize_database(args.db)
+        try:
+            ingest_result = ingest_apply_result(db_path=args.db, apply_result_path=args.result)
+        except (OSError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+        print(
+            json.dumps(
+                {
+                    "status": ingest_result.status,
+                    "apply_result_id": ingest_result.apply_result_id,
+                }
+            )
+        )
+        return 0
+
     parser.print_help()
     return 1
 
@@ -140,6 +220,7 @@ def _build_plan_payload(
     drive_spec: str | None = None,
 ) -> dict:
     """Build a machine-parseable plan payload from snapshots and drive specs."""
+    override_drives = _parse_drive_spec(drive_spec) if drive_spec is not None else None
 
     resolved_db_path = db_path.resolve()
     warning_text = get_windows_long_path_warning(resolved_db_path)
@@ -150,11 +231,15 @@ def _build_plan_payload(
     with closing(sqlite3.connect(connect_path)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         repository = SnapshotRepository(connection)
-        drives = _resolve_planning_drives(repository=repository, drive_spec=drive_spec)
         old_snapshot_id = _resolve_snapshot_range(
             repository=repository,
             new_snapshot_id=new_snapshot_id,
             from_snapshot_id=from_snapshot_id,
+        )
+        drives = _resolve_planning_drives(
+            repository=repository,
+            override_drives=override_drives,
+            required_applied_snapshot_id=old_snapshot_id,
         )
 
         differ = Differ(repository)
@@ -245,18 +330,22 @@ def _parse_drive_spec(drive_spec: str) -> list[DriveInfo]:
 
 def _resolve_planning_drives(
     repository: SnapshotRepository,
-    drive_spec: str | None,
+    override_drives: list[DriveInfo] | None,
+    required_applied_snapshot_id: int,
 ) -> list[DriveInfo]:
     """Resolve drives from explicit override or synced home inventory state."""
-    override_drives: list[DriveInfo] | None = None
-    if drive_spec is not None:
-        override_drives = _parse_drive_spec(drive_spec)
-
-    latest_apply_result_id = repository.get_latest_office_apply_result_id()
-    if latest_apply_result_id is None:
+    latest_apply_result = repository.get_latest_office_apply_result()
+    if latest_apply_result is None:
         raise ValueError(
             "Home state is missing office apply sync; sync latest office apply result before planning"
         )
+
+    if latest_apply_result.applied_snapshot_id < required_applied_snapshot_id:
+        raise ValueError(
+            "Home state is stale: latest apply-result ingest is older than the required planning baseline"
+        )
+
+    latest_apply_result_id = latest_apply_result.id
 
     inventory_rows = repository.get_home_drive_inventory(latest_apply_result_id)
     if not inventory_rows:

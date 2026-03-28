@@ -436,3 +436,76 @@ def test_plan_output_is_machine_parseable_json(open_sqlite, tmp_path: Path, caps
         "size_bytes",
         "files",
     }
+
+
+def test_plan_is_blocked_when_apply_result_is_stale_for_previous_snapshot(
+    open_sqlite,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    """Planning should fail when latest ingest does not match required baseline snapshot."""
+    db_path = tmp_path / "plan_stale_apply_result.db"
+    initialize_database(db_path)
+    source_root = tmp_path / "dead_parrot"
+
+    with open_sqlite(db_path) as connection:
+        repository = SnapshotRepository(connection)
+        first_snapshot = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "dead_parrot/a.txt",
+                    "size_bytes": 1,
+                    "mtime_ns": 1,
+                    "file_type": "file",
+                },
+            ],
+        )
+        second_snapshot = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "dead_parrot/a.txt",
+                    "size_bytes": 2,
+                    "mtime_ns": 2,
+                    "file_type": "file",
+                },
+            ],
+        )
+        third_snapshot = _seed_snapshot(
+            repository,
+            source_root,
+            [
+                {
+                    "path_rel": "dead_parrot/a.txt",
+                    "size_bytes": 3,
+                    "mtime_ns": 3,
+                    "file_type": "file",
+                },
+            ],
+        )
+        connection.commit()
+
+    _seed_apply_and_inventory(
+        db_path,
+        snapshot_id=first_snapshot,
+        drives=[("Office-01", LARGE_DRIVE_BYTES, LARGE_DRIVE_BYTES)],
+    )
+
+    exit_code = main(
+        [
+            "plan",
+            "--db",
+            str(db_path),
+            "--snapshot-id",
+            str(third_snapshot),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert second_snapshot == int(third_snapshot) - 1
+    assert exit_code == 1
+    assert "stale" in captured.err.lower()
+    assert "ingest" in captured.err.lower()
