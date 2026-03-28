@@ -92,3 +92,60 @@ def test_execute_upload_fails_on_checksum_mismatch(tmp_path: Path) -> None:
             retries=1,
             copy_file=mismatching_copy,
         )
+
+
+def test_execute_upload_rejects_traversing_payload_path(tmp_path: Path) -> None:
+    """Upload should reject relative paths containing parent traversal segments."""
+    source_root = tmp_path / "castle"
+    source_root.mkdir(parents=True)
+    (source_root / "keep.txt").write_text("Ni!", encoding="utf-8")
+
+    plan_payload = _make_plan_payload("../keep.txt")
+
+    with pytest.raises(UploadExecutionError, match="traversal|escapes"):
+        execute_upload(
+            plan_payload=plan_payload,
+            source_root=source_root,
+            transport_root=tmp_path / "transport",
+        )
+
+
+def test_execute_upload_rejects_absolute_payload_path(tmp_path: Path) -> None:
+    """Upload should reject absolute payload paths from plan input."""
+    source_root = tmp_path / "ministry"
+    source_root.mkdir(parents=True)
+    absolute_file = source_root / "episode.txt"
+    absolute_file.write_text("Spam spam spam.", encoding="utf-8")
+
+    plan_payload = _make_plan_payload(str(absolute_file.resolve()))
+
+    with pytest.raises(UploadExecutionError, match="relative"):
+        execute_upload(
+            plan_payload=plan_payload,
+            source_root=source_root,
+            transport_root=tmp_path / "transport",
+        )
+
+
+def test_execute_upload_rejects_drive_label_with_separator(tmp_path: Path) -> None:
+    """Upload should reject drive labels containing path separator characters."""
+    source_root = tmp_path / "bridge"
+    source_root.mkdir(parents=True)
+    (source_root / "guard.txt").write_text("What is your quest?", encoding="utf-8")
+
+    plan_payload = _make_plan_payload("guard.txt")
+    plan_payload["allocation"] = [
+        {
+            "drive_label": "Office/01",
+            "file_count": 1,
+            "size_bytes": 20,
+            "files": ["guard.txt"],
+        }
+    ]
+
+    with pytest.raises(UploadExecutionError, match="drive label"):
+        execute_upload(
+            plan_payload=plan_payload,
+            source_root=source_root,
+            transport_root=tmp_path / "transport",
+        )

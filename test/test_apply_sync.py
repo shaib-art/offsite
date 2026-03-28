@@ -100,6 +100,23 @@ def test_validate_apply_result_rejects_invalid_drive_inventory() -> None:
         validate_apply_result_envelope(payload)
 
 
+def test_validate_apply_result_rejects_non_hex_file_mapping_checksum() -> None:
+    """Apply-result validator should reject 64-character checksums with non-hex content."""
+    payload = _build_valid_envelope(applied_snapshot_id=1)
+    payload["file_mappings"] = [
+        {
+            "path_rel": "flying_circus/parrot.txt",
+            "drive_label": "Office-01",
+            "version_token": "v2",
+            "content_sha256": "z" * 64,
+            "size_bytes": 500,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="64 hex characters"):
+        validate_apply_result_envelope(payload)
+
+
 def test_write_immutable_apply_result_refuses_overwrite(tmp_path: Path) -> None:
     """Apply-result writer should refuse overwriting immutable result envelopes."""
     payload = _build_valid_envelope(applied_snapshot_id=1)

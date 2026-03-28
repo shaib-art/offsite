@@ -63,11 +63,14 @@ def execute_upload(
     for item in _iter_plan_files(plan_payload):
         path_rel = Path(item["path_rel"])
         drive_label = str(item["drive_label"])
-        source_path = source_root / path_rel
+        _validate_payload_path(path_rel)
+        _validate_drive_label(drive_label)
+
+        source_path = _resolve_under_root(root=source_root, candidate=path_rel)
         if not source_path.exists():
             raise UploadExecutionError(f"source payload missing: {path_rel.as_posix()}")
 
-        destination_path = payload_root / drive_label / path_rel
+        destination_path = _resolve_under_root(root=payload_root / drive_label, candidate=path_rel)
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
         source_hash = sha256_file(source_path)
@@ -160,6 +163,37 @@ def _derive_run_id(plan_payload: dict[str, Any], source_root: Path) -> str:
 
 def _copy_with_shutil(source: Path, destination: Path) -> None:
     shutil.copy2(source, destination)
+
+
+def _validate_payload_path(path_rel: Path) -> None:
+    """Reject absolute and traversing payload paths from external plan input."""
+    if path_rel.is_absolute():
+        raise UploadExecutionError("plan payload path must be relative")
+    if any(part == ".." for part in path_rel.parts):
+        raise UploadExecutionError("plan payload path cannot contain '..' traversal")
+
+
+def _validate_drive_label(drive_label: str) -> None:
+    """Reject drive labels that could alter destination path structure."""
+    if not drive_label:
+        raise UploadExecutionError("drive label must be non-empty")
+    if drive_label in {".", ".."}:
+        raise UploadExecutionError("drive label cannot be '.' or '..'")
+    if "/" in drive_label or "\\" in drive_label:
+        raise UploadExecutionError("drive label cannot contain path separators")
+
+
+def _resolve_under_root(root: Path, candidate: Path) -> Path:
+    """Resolve a candidate path and ensure it remains inside root."""
+    resolved_root = root.resolve()
+    resolved_candidate = (resolved_root / candidate).resolve()
+    try:
+        resolved_candidate.relative_to(resolved_root)
+    except ValueError as exc:
+        raise UploadExecutionError(
+            f"plan payload path escapes allowed root: {candidate.as_posix()}"
+        ) from exc
+    return resolved_candidate
 
 
 def _validate_plan_payload(plan_payload: dict[str, Any]) -> None:

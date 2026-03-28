@@ -91,11 +91,12 @@ def write_immutable_apply_result(payload: dict[str, Any], output_path: Path) -> 
     """Validate and write apply-result once; refusing overwrites preserves immutability."""
     validate_apply_result_envelope(payload)
 
-    if output_path.exists():
-        raise ValueError("apply-result output path already exists; envelope is immutable")
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    try:
+        with output_path.open("x", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True))
+    except FileExistsError:
+        raise ValueError("apply-result output path already exists; envelope is immutable") from None
 
 
 def _compute_envelope_hash(payload: dict[str, Any]) -> str:
@@ -129,3 +130,7 @@ def _validate_file_mapping(mapping: dict[str, Any]) -> None:
     checksum = str(mapping["content_sha256"])
     if len(checksum) != 64:
         raise ValueError("file_mappings content_sha256 must be 64 hex characters")
+    try:
+        bytes.fromhex(checksum)
+    except ValueError:
+        raise ValueError("file_mappings content_sha256 must be 64 hex characters") from None
