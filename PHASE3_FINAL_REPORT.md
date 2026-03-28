@@ -1,8 +1,8 @@
 # Phase 3 Final Report: Upload and Apply-Result Synchronization
 
-**Status:** COMPLETE (Phase 3 core scope)
+**Status:** COMPLETE (Phase 3 core scope + review hardening)
 **Date:** 2026-03-28
-**Branch:** main
+**Branch:** private/shaib/phase3
 
 ---
 
@@ -16,6 +16,7 @@ Phase 3 delivers the end-to-end synchronization pipeline on top of the Phase 2 p
 - home-side apply-result ingest that updates inventory + placement index
 - stale-ingest guardrail that blocks planning when baseline sync is out of date
 - idempotent re-ingest behavior for the same apply run
+- post-review hardening for upload path containment, checksum validation, atomic immutable writes, and migration identifier validation
 
 Implementation remains local-first with zero additional runtime dependencies.
 
@@ -70,17 +71,17 @@ Implementation remains local-first with zero additional runtime dependencies.
 ### Full test suite
 
 - `pytest -q`
-- Result: **91 passed**, 0 failed
+- Result: **98 passed**, 0 failed
 
 ### Phase 3 critical coverage gate
 
 - `pytest --cov=offsite.core.upload --cov=offsite.core.apply_sync --cov=offsite.core.integrity --cov-fail-under=90 -q test/test_upload.py test/test_apply_sync.py`
-- Result: **92.65%** (gate >=90%)
+- Result: **91.81%** (gate >=90%)
 
 ### Overall coverage gate
 
 - `pytest --cov=src/offsite --cov-fail-under=85 -q`
-- Result: **90.55%** (gate >=85%)
+- Result: **90.51%** (gate >=85%)
 
 ---
 
@@ -161,8 +162,10 @@ Implementation remains local-first with zero additional runtime dependencies.
 
 - Upload resume: existing destination payload is skipped when checksum already matches source.
 - Upload retry: transient copy failure retries up to configured limit.
+- Upload path safety: plan payload paths must remain relative and contained under the allowed source/transport roots.
 - Re-ingest safety: same `apply_run_id` + same `envelope_sha256` returns `already_ingested` without duplicate state rows.
 - Conflict detection: same `apply_run_id` + different envelope hash is rejected.
+- Immutable write safety: apply-result envelopes use exclusive-create semantics to avoid overwrite races.
 
 ---
 
@@ -171,6 +174,7 @@ Implementation remains local-first with zero additional runtime dependencies.
 - Contract versioning lifecycle is currently schema-v1 only; no migration helper for envelope schema evolution yet.
 - Planning stale-check currently compares by snapshot id baseline and assumes monotonic, source-consistent snapshot lineage.
 - CLI integration tests for `upload` and `ingest-apply-result` commands can be expanded for stronger end-to-end command-surface confidence.
+- Review-driven hardening is in place for migration identifiers and upload path traversal, but broader hostile-input fuzzing is still not covered.
 - Existing repository-wide sqlite `ResourceWarning` noise appears in some legacy tests and should be cleaned in a follow-up housekeeping pass.
 
 ---
