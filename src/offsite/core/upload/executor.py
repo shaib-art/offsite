@@ -84,14 +84,32 @@ def execute_upload(
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
         source_hash = sha256_file(source_path)
+        destination_hash: str | None = None
         if index <= completed_step:
             if not destination_path.exists():
                 raise UploadExecutionError(
                     f"checkpoint state invalid for missing uploaded payload: {path_rel.as_posix()}"
                 )
+            destination_hash = sha256_file(destination_path)
             skipped_files += 1
-        elif destination_path.exists() and sha256_file(destination_path) == source_hash:
-            skipped_files += 1
+        elif destination_path.exists():
+            destination_hash = sha256_file(destination_path)
+            if destination_hash == source_hash:
+                skipped_files += 1
+            else:
+                attempts = 0
+                while True:
+                    try:
+                        attempts += 1
+                        copier(source_path, destination_path)
+                        break
+                    except OSError as exc:
+                        if attempts > retries:
+                            raise UploadExecutionError(
+                                f"upload failed after retries for {path_rel.as_posix()}: {exc}"
+                            ) from exc
+                        retry_events += 1
+                copied_files += 1
         else:
             attempts = 0
             while True:
@@ -107,7 +125,8 @@ def execute_upload(
                     retry_events += 1
             copied_files += 1
 
-        destination_hash = sha256_file(destination_path)
+        if destination_hash is None:
+            destination_hash = sha256_file(destination_path)
         if destination_hash != source_hash:
             raise UploadExecutionError(
                 f"checksum mismatch for uploaded payload: {path_rel.as_posix()}"

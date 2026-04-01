@@ -403,12 +403,8 @@ class SnapshotRepository:
         step_index: int,
         payload_json: str,
     ) -> None:
-        """Insert or update checkpoint state, rejecting conflicting run identities."""
-        existing = self.get_workflow_checkpoint(workflow_kind, checkpoint_key)
-        if existing is not None and existing.run_id != run_id:
-            raise ValueError("conflicting checkpoint run_id for workflow/checkpoint key")
-
-        self._connection.execute(
+        """Insert or update checkpoint state with atomic run-id conflict protection."""
+        cursor = self._connection.execute(
             """
             INSERT INTO workflow_checkpoint (
                 workflow_kind,
@@ -425,6 +421,7 @@ class SnapshotRepository:
                 step_index=excluded.step_index,
                 payload_json=excluded.payload_json,
                 updated_at=excluded.updated_at
+            WHERE workflow_checkpoint.run_id = excluded.run_id
             """,
             (
                 workflow_kind,
@@ -435,6 +432,8 @@ class SnapshotRepository:
                 _utc_now_text(),
             ),
         )
+        if cursor.rowcount == 0:
+            raise ValueError("conflicting checkpoint run_id for workflow/checkpoint key")
 
     def get_workflow_checkpoint(
         self,

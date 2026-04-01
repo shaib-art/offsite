@@ -134,8 +134,21 @@ def test_execute_recovery_refuses_overwriting_existing_report(tmp_path: Path) ->
     report_path = tmp_path / "reports" / "restore-result.json"
     execute_recovery(recovery_request=request, media_root=media_root, report_path=report_path)
 
+    copy_attempts = {"count": 0}
+
+    def counting_copy(source: Path, destination: Path) -> None:
+        copy_attempts["count"] += 1
+        shutil.copy2(source, destination)
+
     with pytest.raises(RecoveryExecutionError, match="already exists"):
-        execute_recovery(recovery_request=request, media_root=media_root, report_path=report_path)
+        execute_recovery(
+            recovery_request=request,
+            media_root=media_root,
+            report_path=report_path,
+            copy_file=counting_copy,
+        )
+
+    assert copy_attempts["count"] == 0
 
 
 def test_execute_recovery_interrupted_then_resume_from_checkpoint(tmp_path: Path) -> None:

@@ -67,6 +67,14 @@ def execute_recovery(
     if checkpoint_repository is not None and checkpoint_key is None:
         raise ValueError("checkpoint_key is required when checkpoint_repository is provided")
 
+    # Fail fast before any restore-side filesystem mutations when the report cannot be created.
+    if report_path.exists():
+        raise RecoveryExecutionError(
+            "recovery report path already exists; report is immutable",
+            category="media",
+            code="immutable_report_exists",
+        )
+
     target_root = Path(str(recovery_request["target_root"]))
     restore_run_id = str(recovery_request["restore_run_id"])
     source_apply_run_id = str(recovery_request["source_apply_run_id"])

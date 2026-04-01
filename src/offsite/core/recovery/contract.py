@@ -124,6 +124,10 @@ def _is_safe_relative_path(path_rel: str) -> bool:
     if not path_rel:
         return False
 
+    # Reject Windows-style separators so traversal checks stay consistent cross-platform.
+    if "\\" in path_rel:
+        return False
+
     path = PurePosixPath(path_rel)
     if path.is_absolute():
         return False

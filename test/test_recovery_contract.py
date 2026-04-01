@@ -110,6 +110,38 @@ def test_validate_recovery_request_rejects_unsafe_relative_path() -> None:
         validate_recovery_request(payload)
 
 
+def test_validate_recovery_request_rejects_windows_style_traversal_path() -> None:
+    """Recovery request validator should reject Windows-style traversal path segments."""
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "..\\bridge_of_death.txt",
+            "drive_label": "Office-01",
+            "content_sha256": "a" * 64,
+            "size_bytes": 500,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="safe relative path"):
+        validate_recovery_request(payload)
+
+
+def test_validate_recovery_request_rejects_windows_style_normalization_path() -> None:
+    """Recovery request validator should reject backslash-separated normalization-like paths."""
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "a\\..\\b.txt",
+            "drive_label": "Office-01",
+            "content_sha256": "a" * 64,
+            "size_bytes": 500,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="safe relative path"):
+        validate_recovery_request(payload)
+
+
 def test_validate_recovery_request_rejects_absolute_relative_path() -> None:
     """Recovery request validator should reject absolute paths in file mappings."""
     payload = _valid_request()
