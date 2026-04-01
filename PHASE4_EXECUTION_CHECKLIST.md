@@ -39,9 +39,9 @@ Phase 4 is complete only when all are true:
 
 - [x] Define restore input contract from placement index and synced inventory.
 - [x] Validate target path safety before writes.
-- [ ] Restore files with deterministic ordering.
-- [ ] Verify integrity during restore.
-- [ ] Produce immutable recovery result/report artifact.
+- [x] Restore files with deterministic ordering.
+- [x] Verify integrity during restore.
+- [x] Produce immutable recovery result/report artifact.
 
 ### B) Checkpoint Persistence
 
@@ -82,11 +82,11 @@ Phase 4 is complete only when all are true:
 
 ### Integration tests
 
-- [ ] Placement index -> recover happy path.
+- [x] Placement index -> recover happy path.
 - [ ] Interrupted recovery then resume.
 - [ ] Integrity mismatch during restore.
 - [ ] Unsupported schema migration rejection.
-- [ ] Recovery report artifact generation.
+- [x] Recovery report artifact generation.
 
 ### CI checks
 
