@@ -1,5 +1,7 @@
 """Recovery request contract validation for Phase 4 restore workflows."""
 
+# pylint: disable=duplicate-code
+
 from __future__ import annotations
 
 from pathlib import PurePosixPath

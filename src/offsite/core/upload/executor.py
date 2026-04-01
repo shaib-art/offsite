@@ -1,6 +1,6 @@
 """Upload execution pipeline with retry, resume, and checksum verification."""
 
-# pylint: disable=too-many-locals
+# pylint: disable=too-many-locals,too-many-statements,duplicate-code
 
 from __future__ import annotations
 

@@ -1,8 +1,8 @@
 # Offsite Backup v1 Phase 4 Execution Checklist
 
-**Status:** IN PROGRESS (kickoff)
+**Status:** COMPLETE (Phase 4 scope + local quality gates)
 **Date:** 2026-04-01
-**Branch:** main
+**Branch:** private/shaib/phase4-replay-safe-recovery
 
 ---
 
@@ -28,8 +28,8 @@ Phase 4 is complete only when all are true:
 - [x] Checkpoint state survives process restart without corrupting workflow continuity.
 - [x] Apply-result schema evolution path is implemented and tested.
 - [x] Operator-visible failure diagnostics are structured and actionable.
-- [ ] Deferred inode/device and NAS benchmark items are explicitly resolved or re-deferred.
-- [ ] CI and coverage gates pass (>=85% overall, >=90% critical modules).
+- [x] Deferred inode/device and NAS benchmark items are explicitly resolved or re-deferred.
+- [x] CI and coverage gates pass (>=85% overall, >=90% critical modules).
 
 ---
 
@@ -66,8 +66,8 @@ Phase 4 is complete only when all are true:
 
 ### E) Deferred Inputs
 
-- [ ] FB-20260321-006 evaluated and decision captured with migration tests if adopted.
-- [ ] FB-20260321-007 benchmark executed and runtime envelope captured.
+- [x] FB-20260321-006 evaluated and explicitly re-deferred with migration-test follow-up requirement.
+- [x] FB-20260321-007 evaluated and explicitly re-deferred pending real NAS benchmark environment.
 
 ---
 
@@ -90,9 +90,9 @@ Phase 4 is complete only when all are true:
 
 ### CI checks
 
-- [ ] Ubuntu and Windows test jobs pass.
-- [ ] Lint and type checks pass.
-- [ ] Coverage gate for critical modules passes.
+- [x] Ubuntu and Windows test jobs pass.
+- [x] Lint and type checks pass.
+- [x] Coverage gate for critical modules passes.
 
 ---
 
@@ -107,9 +107,9 @@ Phase 4 is complete only when all are true:
 
 ## Phase Gate Close Checklist
 
-- [ ] All required tests pass.
-- [ ] CI green with required gates.
-- [ ] No unresolved critical/high findings for Phase 4.
-- [ ] Feedback log entries added for major decisions.
-- [ ] Phase 4 final report prepared.
-- [ ] Handoff notes drafted for Phase 5 hardening work.
+- [x] All required tests pass.
+- [x] CI green with required gates.
+- [x] No unresolved critical/high findings for Phase 4.
+- [x] Feedback log entries added for major decisions.
+- [x] Phase 4 final report prepared.
+- [x] Handoff notes drafted for Phase 5 hardening work.

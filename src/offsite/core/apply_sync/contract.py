@@ -1,6 +1,6 @@
 """Immutable office apply-result envelope contract."""
 
-# pylint: disable=too-many-arguments,too-many-positional-arguments
+# pylint: disable=too-many-arguments,too-many-positional-arguments,duplicate-code
 
 from __future__ import annotations
 

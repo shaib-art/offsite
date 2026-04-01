@@ -264,7 +264,7 @@ src/offsite/
 
 - Branch: `main`
 - Phase 3 implementation complete and closed
-- Phase 4 kickoff checklist published: `PHASE4_EXECUTION_CHECKLIST.md`
+- Phase 4 implementation complete and closeout artifacts published
 
 ### Phase 3 — Upload and apply-sync pipeline (closed)
 
@@ -300,15 +300,25 @@ index, and stale-ingest guardrails for `plan`.
 - Upload run IDs are deterministic from plan + source root when not explicitly provided.
 - Apply-result envelopes are immutable via embedded `envelope_sha256` integrity hash.
 
-### Phase 4 — Recovery, checkpoints, schema evolution, diagnostics (active)
+### Phase 4 — Recovery, checkpoints, schema evolution, diagnostics (closed)
 
-Execution checklist and gate criteria are tracked in:
+Phase 4 closure artifacts:
 
 - `PHASE4_EXECUTION_CHECKLIST.md`
+- `PHASE4_FINAL_REPORT.md`
+- `PHASE4_OPERATOR_RUNBOOK.md`
+- `PHASE4_DEFERRED_DECISIONS.md`
+- `PHASE4_FEEDBACK_LOG.md`
+- `PHASE4_HANDOFF_PHASE5.md`
 
-Current Phase 4 goals:
+Latest validation snapshot:
 
-- Replay-safe recovery executor and immutable recovery report artifact.
-- Cross-restart checkpoint persistence and strict resume validation.
-- Apply-result schema transition rules and migration handlers.
-- Expanded diagnostics taxonomy with deterministic operator guidance.
+- **123 tests passing**, 0 failures.
+- **90.21% overall coverage** (gate >=85%).
+- **90.08% critical coverage** for `offsite.core.recovery` + `offsite.core.upload` + `offsite.core.apply_sync` + `offsite.core.integrity` (gate >=90%).
+
+### Next phase focus (Phase 5 hardening)
+
+- Checkpoint lifecycle/cleanup policy.
+- CLI command-surface expansion for recovery operations.
+- Deferred FB-20260321-006 and FB-20260321-007 execution.

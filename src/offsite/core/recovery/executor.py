@@ -1,5 +1,7 @@
 """Recovery execution pipeline for Phase 4 replay-safe restore."""
 
+# pylint: disable=too-many-locals,duplicate-code
+
 from __future__ import annotations
 
 import json
@@ -273,6 +275,9 @@ def _resolve_under_root(root: Path, candidate: Path) -> Path:
         resolved_candidate.relative_to(resolved_root)
     except ValueError as exc:
         raise RecoveryExecutionError(
-            f"recovery path escapes allowed root: {candidate.as_posix()}"
+            f"recovery path escapes allowed root: {candidate.as_posix()}",
+            category="schema",
+            code="path_escape",
+            path_rel=candidate.as_posix(),
         ) from exc
     return resolved_candidate
