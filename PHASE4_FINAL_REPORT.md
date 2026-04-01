@@ -211,6 +211,7 @@ Recommended Phase 5 priorities:
 3. Expand migration handler test matrix for future schema transitions beyond v1.
 4. Execute deferred items: FB-20260321-006 inode/device rename heuristics with migration safety; FB-20260321-007 real NAS benchmark and runtime envelope capture.
 5. Address legacy sqlite `ResourceWarning` housekeeping in historical test paths.
+6. Audit disabled lint/type/static-analysis checks across the entire codebase; either justify each surviving suppression with a local code comment or remove it by fixing the underlying issue.
 
 Risk notes for Phase 5 planning:
 

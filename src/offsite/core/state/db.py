@@ -132,6 +132,9 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _ensure_column(conn, "office_apply_result", "completed_at", "TEXT")
     _ensure_column(conn, "office_apply_result", "envelope_sha256", "TEXT")
 
+    # Keep this DDL aligned with SCHEMA_V1 on purpose: fresh installs use the
+    # canonical schema, while existing DBs rely on this idempotent block during
+    # forward migration.
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS placement_index (

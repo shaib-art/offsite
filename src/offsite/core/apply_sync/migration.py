@@ -1,5 +1,9 @@
 """Apply-result envelope schema transition rules and migration handlers."""
 
+# v0 migration support is retained as a defensive compatibility boundary for
+# replay/import scenarios (for example archived/offsite envelopes) and is
+# currently exercised by explicit migration tests in this repository.
+
 from __future__ import annotations
 
 from typing import Any
