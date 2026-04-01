@@ -30,7 +30,7 @@ Implementation remains local-first with no additional runtime dependencies.
 | Persisted checkpoint continuity across restarts | COMPLETE | `workflow_checkpoint` table + repository APIs |
 | Schema evolution path implemented/tested | COMPLETE | `offsite.core.apply_sync.migration` + `test/test_apply_sync_migration.py` |
 | Structured operator diagnostics | COMPLETE | `offsite.core.recovery.diagnostics` + failure report assertions |
-| Deferred items explicitly resolved/re-deferred | COMPLETE | `PHASE4_DEFERRED_DECISIONS.md` |
+| Deferred items explicitly resolved/re-deferred | COMPLETE | explicit Phase 4 decision log in this report |
 | Quality gates pass (overall >=85, critical >=90) | COMPLETE | local gate runs documented below |
 
 ---
@@ -63,11 +63,7 @@ Implementation remains local-first with no additional runtime dependencies.
 
 ### Phase/Ops Docs
 
-- `PHASE4_EXECUTION_CHECKLIST.md`
-- `PHASE4_OPERATOR_RUNBOOK.md`
-- `PHASE4_DEFERRED_DECISIONS.md`
-- `PHASE4_FEEDBACK_LOG.md`
-- `PHASE4_HANDOFF_PHASE5.md`
+- `PHASE4_FINAL_REPORT.md` (consolidated source of truth)
 
 ---
 
@@ -100,7 +96,102 @@ Implementation remains local-first with no additional runtime dependencies.
 - FB-20260321-006: re-deferred to Phase 5 with migration-safety test requirement.
 - FB-20260321-007: re-deferred to Phase 5 pending controlled real NAS benchmark environment.
 
-Details: `PHASE4_DEFERRED_DECISIONS.md`.
+### FB-20260321-006 Decision Detail
+
+- Item: rename heuristics inode/device support with migration safety.
+- Phase 4 decision: re-defer to Phase 5.
+- Rationale:
+	- Phase 4 prioritized replay-safe recovery, checkpoint persistence, schema migration, and diagnostics.
+	- Inode/device-aware rename heuristics require careful cross-platform behavior validation and migration safety testing against persisted placement state.
+- Required Phase 5 follow-up:
+	- Add migration tests covering historical placement_index transitions.
+	- Add Linux/macOS/Windows behavior matrix tests for inode/device edge cases.
+
+### FB-20260321-007 Decision Detail
+
+- Item: real NAS performance baseline and runtime envelope capture.
+- Phase 4 decision: re-defer to Phase 5.
+- Rationale:
+	- Repository CI and unit/integration tests are simulation-first and do not provide stable physical NAS signal.
+	- Benchmark quality requires controlled hardware/network setup and repeated measurements.
+- Required Phase 5 follow-up:
+	- Run on real NAS path with fixed hardware and network profile.
+	- Capture runtime envelope metrics and persist benchmark notes for operator expectations.
+
+---
+
+## Execution Checklist Closure
+
+### Phase Exit Criteria
+
+- [x] Recovery can rebuild the latest known good state from offsite media.
+- [x] Recovery resume after interruption is safe and deterministic.
+- [x] Checkpoint state survives process restart without corrupting workflow continuity.
+- [x] Apply-result schema evolution path is implemented and tested.
+- [x] Operator-visible failure diagnostics are structured and actionable.
+- [x] Deferred inode/device and NAS benchmark items are explicitly resolved or re-deferred.
+- [x] CI and coverage gates pass (>=85% overall, >=90% critical modules).
+
+### Workstream Completion
+
+- Recovery contract and executor: COMPLETE.
+- Checkpoint persistence: COMPLETE.
+- Schema versioning and migration handling: COMPLETE.
+- Diagnostics and operability: COMPLETE.
+- Deferred inputs evaluation: COMPLETE (explicit re-defer decisions captured).
+
+### Required Tests and Operator Validation
+
+- Unit tests (recovery contract, checkpoint persistence, schema migration, diagnostics): COMPLETE.
+- Integration tests (happy path, interruption/resume, integrity mismatch, unsupported migration, immutable report generation): COMPLETE.
+- Operator validation (missing drive/media, stale checkpoint conflict, corrupted payload, unsupported envelope version): COMPLETE.
+
+---
+
+## Operator Runbook Guidance
+
+Recovery immutable reports emit `failures` entries with:
+
+- `category`
+- `code`
+- `message`
+- optional `path_rel`
+
+Supported categories:
+
+- `integrity`
+- `checkpoint`
+- `schema`
+- `media`
+
+Operator response guidance:
+
+- `media.missing_payload`: verify required offsite drive is connected and mounted; validate transport media path and uploaded run folder.
+- `media.copy_failed`: treat as transient media read/write fault first; retry after reconnect/remount; replace failing cable/port/drive if repeated.
+- `media.immutable_report_exists`: do not overwrite existing report; start a new restore run/report path.
+- `integrity.checksum_mismatch`: stop recovery; quarantine suspect payload; re-run upload integrity verification from source and re-transport clean payloads.
+- `integrity.size_mismatch`: treat as corruption/truncation; do not continue until payload is re-staged and verified.
+- `checkpoint.conflicting_run_id`: stale/conflicting checkpoint state; fail closed; investigate checkpoint key ownership and start a clean run if required.
+- `checkpoint.stale_checkpoint`: destination no longer matches persisted checkpoint progress; invalidate checkpoint and restart deterministic replay.
+- `schema.invalid_recovery_request`: request contract mismatch; fix envelope/request generation and rerun validation before execution.
+
+Safety rules:
+
+- Recovery reports are immutable (exclusive-create write mode).
+- Resume is deterministic and keyed by `(workflow_kind, checkpoint_key, run_id)`.
+- Conflicting checkpoint identity is rejected; never force resume across run IDs.
+
+---
+
+## Feedback Log
+
+1. Recovery executor remains deterministic by sorted `path_rel` order.
+2. Recovery and upload both support checkpoint-backed resume using shared `workflow_checkpoint` persistence.
+3. Resume is fail-closed on conflicting run identity (`workflow_kind` + `checkpoint_key` + `run_id`).
+4. Schema transition policy is explicit: schema-v1 current, schema-v0 accepted only via validated `migration_id` and supported handler.
+5. Recovery diagnostics taxonomy is standardized to `integrity`, `checkpoint`, `schema`, and `media`.
+6. Recovery reports are immutable and include structured `failures` diagnostics for operator actionability.
+7. Deferred inputs FB-20260321-006 and FB-20260321-007 are explicitly re-deferred to Phase 5 with rationale and required follow-up validation.
 
 ---
 
@@ -113,4 +204,17 @@ Details: `PHASE4_DEFERRED_DECISIONS.md`.
 
 ## Phase 5 Entry Notes
 
-See `PHASE4_HANDOFF_PHASE5.md` for recommended next priorities and risk context.
+Recommended Phase 5 priorities:
+
+1. Add checkpoint cleanup/retention policy and lifecycle tooling.
+2. Introduce CLI command surface for recovery execution and status/report inspection.
+3. Expand migration handler test matrix for future schema transitions beyond v1.
+4. Execute deferred items:
+	- FB-20260321-006 inode/device rename heuristics with migration safety.
+	- FB-20260321-007 real NAS benchmark and runtime envelope capture.
+5. Address legacy sqlite `ResourceWarning` housekeeping in historical test paths.
+
+Risk notes for Phase 5 planning:
+
+- Current benchmark claims remain simulation-based; real NAS behavior is still pending.
+- Schema migration currently includes one legacy handler; future evolution should enforce additive policy and explicit migration IDs.

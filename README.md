@@ -302,14 +302,9 @@ index, and stale-ingest guardrails for `plan`.
 
 ### Phase 4 — Recovery, checkpoints, schema evolution, diagnostics (closed)
 
-Phase 4 closure artifacts:
+Phase 4 closure artifact:
 
-- `PHASE4_EXECUTION_CHECKLIST.md`
 - `PHASE4_FINAL_REPORT.md`
-- `PHASE4_OPERATOR_RUNBOOK.md`
-- `PHASE4_DEFERRED_DECISIONS.md`
-- `PHASE4_FEEDBACK_LOG.md`
-- `PHASE4_HANDOFF_PHASE5.md`
 
 Latest validation snapshot:
 
