@@ -61,6 +61,16 @@ CREATE TABLE IF NOT EXISTS placement_index (
     FOREIGN KEY (apply_result_id) REFERENCES office_apply_result(id)
 );
 
+CREATE TABLE IF NOT EXISTS workflow_checkpoint (
+    workflow_kind TEXT NOT NULL,
+    checkpoint_key TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    step_index INTEGER NOT NULL,
+    payload_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (workflow_kind, checkpoint_key)
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_office_apply_result_run_id
 ON office_apply_result (apply_run_id)
 WHERE apply_run_id IS NOT NULL;
@@ -76,6 +86,7 @@ ALLOWED_MIGRATION_TABLES = {
     "office_apply_result",
     "home_drive_inventory",
     "placement_index",
+    "workflow_checkpoint",
 }
 
 ALLOWED_MIGRATION_COLUMNS = {
@@ -121,6 +132,9 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
     _ensure_column(conn, "office_apply_result", "completed_at", "TEXT")
     _ensure_column(conn, "office_apply_result", "envelope_sha256", "TEXT")
 
+    # Keep this DDL aligned with SCHEMA_V1 on purpose: fresh installs use the
+    # canonical schema, while existing DBs rely on this idempotent block during
+    # forward migration.
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS placement_index (
@@ -141,6 +155,16 @@ def _migrate_schema(conn: sqlite3.Connection) -> None:
         CREATE UNIQUE INDEX IF NOT EXISTS idx_office_apply_result_envelope_sha256
         ON office_apply_result (envelope_sha256)
         WHERE envelope_sha256 IS NOT NULL;
+
+        CREATE TABLE IF NOT EXISTS workflow_checkpoint (
+            workflow_kind TEXT NOT NULL,
+            checkpoint_key TEXT NOT NULL,
+            run_id TEXT NOT NULL,
+            step_index INTEGER NOT NULL,
+            payload_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (workflow_kind, checkpoint_key)
+        );
         """
     )
 

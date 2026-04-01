@@ -263,9 +263,10 @@ src/offsite/
 ### Current branch
 
 - Branch: `main`
-- Phase 3 implementation merged locally (report generated)
+- Phase 3 implementation complete and closed
+- Phase 4 implementation complete and closeout artifacts published
 
-### Phase 3 — Upload and apply-sync pipeline
+### Phase 3 — Upload and apply-sync pipeline (closed)
 
 **Delivered scope:** upload execution with retry/resume and checksum verification,
 immutable office apply-result envelope, home ingest updating inventory and placement
@@ -280,11 +281,16 @@ index, and stale-ingest guardrails for `plan`.
 | 3 | Home ingest + idempotent state updates | COMPLETE |
 | 4 | Plan stale-ingest enforcement + CI critical gate update | COMPLETE |
 
+#### Phase 3 closure artifacts
+
+- Final report: `PHASE3_FINAL_REPORT.md`
+- Validation baseline: 98 tests passed, 90.51% overall coverage, 91.81% critical coverage
+
 #### Current test / coverage snapshot
 
-- **91 tests passing**, 0 failures
-- **90.55% overall coverage** (gate >=85%)
-- **92.65% critical coverage** for `offsite.core.upload` + `offsite.core.apply_sync` + `offsite.core.integrity` (gate >=90%)
+- **98 tests passing**, 0 failures
+- **90.51% overall coverage** (gate >=85%)
+- **91.81% critical coverage** for `offsite.core.upload` + `offsite.core.apply_sync` + `offsite.core.integrity` (gate >=90%)
 
 #### Key implemented policy decisions
 
@@ -294,8 +300,20 @@ index, and stale-ingest guardrails for `plan`.
 - Upload run IDs are deterministic from plan + source root when not explicitly provided.
 - Apply-result envelopes are immutable via embedded `envelope_sha256` integrity hash.
 
-#### Pending / next steps (Phase 4 candidates)
+### Phase 4 — Recovery, checkpoints, schema evolution, diagnostics (closed)
 
-- Restore/recovery workflow contract and replay-safe executor.
-- Persistent upload/apply checkpoints for cross-process resume.
-- Envelope schema version migration strategy beyond schema v1.
+Phase 4 closure artifact:
+
+- `PHASE4_FINAL_REPORT.md`
+
+Latest validation snapshot:
+
+- **123 tests passing**, 0 failures.
+- **90.21% overall coverage** (gate >=85%).
+- **94.84% critical coverage** for `offsite.core.recovery` + `offsite.core.upload` + `offsite.core.apply_sync` + `offsite.core.integrity` (gate >=90%).
+
+### Next phase focus (Phase 5 hardening)
+
+- Checkpoint lifecycle/cleanup policy.
+- CLI command-surface expansion for recovery operations.
+- Deferred FB-20260321-006 and FB-20260321-007 execution.

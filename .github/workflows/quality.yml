@@ -57,6 +57,7 @@ jobs:
           --cov-report=term-missing
           test/test_upload.py
           test/test_apply_sync.py
+          test/test_apply_sync_migration.py
       - name: Coverage gate (>=85%)
         env:
           PYTHONPATH: src

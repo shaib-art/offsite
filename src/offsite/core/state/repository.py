@@ -43,6 +43,18 @@ class OfficeApplyResultRecord:  # pylint: disable=too-many-instance-attributes
     envelope_sha256: str | None
 
 
+@dataclass(frozen=True)
+class WorkflowCheckpointRecord:
+    """A persisted workflow checkpoint row for resumable operations."""
+
+    workflow_kind: str
+    checkpoint_key: str
+    run_id: str
+    step_index: int
+    payload_json: str
+    updated_at: str
+
+
 class SnapshotRepository:
     """Persistence operations for snapshot_run and snapshot_file records."""
 
@@ -381,6 +393,80 @@ class SnapshotRepository:
                 updated_at=excluded.updated_at
             """,
             payload,
+        )
+
+    def upsert_workflow_checkpoint(
+        self,
+        workflow_kind: str,
+        checkpoint_key: str,
+        run_id: str,
+        step_index: int,
+        payload_json: str,
+    ) -> None:
+        """Insert or update checkpoint state with atomic run-id conflict protection."""
+        cursor = self._connection.execute(
+            """
+            INSERT INTO workflow_checkpoint (
+                workflow_kind,
+                checkpoint_key,
+                run_id,
+                step_index,
+                payload_json,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workflow_kind, checkpoint_key)
+            DO UPDATE SET
+                run_id=excluded.run_id,
+                step_index=excluded.step_index,
+                payload_json=excluded.payload_json,
+                updated_at=excluded.updated_at
+            WHERE workflow_checkpoint.run_id = excluded.run_id
+            """,
+            (
+                workflow_kind,
+                checkpoint_key,
+                run_id,
+                step_index,
+                payload_json,
+                _utc_now_text(),
+            ),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError("conflicting checkpoint run_id for workflow/checkpoint key")
+
+    def get_workflow_checkpoint(
+        self,
+        workflow_kind: str,
+        checkpoint_key: str,
+    ) -> WorkflowCheckpointRecord | None:
+        """Return checkpoint row for workflow + checkpoint key, if present."""
+        row = self._connection.execute(
+            """
+            SELECT
+                workflow_kind,
+                checkpoint_key,
+                run_id,
+                step_index,
+                payload_json,
+                updated_at
+            FROM workflow_checkpoint
+            WHERE workflow_kind = ?
+              AND checkpoint_key = ?
+            LIMIT 1
+            """,
+            (workflow_kind, checkpoint_key),
+        ).fetchone()
+        if row is None:
+            return None
+
+        return WorkflowCheckpointRecord(
+            workflow_kind=str(row[0]),
+            checkpoint_key=str(row[1]),
+            run_id=str(row[2]),
+            step_index=int(row[3]),
+            payload_json=str(row[4]),
+            updated_at=str(row[5]),
         )
 
 

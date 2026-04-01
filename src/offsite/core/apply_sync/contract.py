@@ -1,6 +1,8 @@
 """Immutable office apply-result envelope contract."""
 
-# pylint: disable=too-many-arguments,too-many-positional-arguments
+# This module intentionally mirrors contract-validation patterns used in other
+# workflow contracts to keep each boundary explicit and independently auditable.
+# pylint: disable=too-many-arguments,too-many-positional-arguments,duplicate-code
 
 from __future__ import annotations
 
