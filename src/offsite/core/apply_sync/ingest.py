@@ -10,6 +10,7 @@ from pathlib import Path
 
 from offsite.core.pathing import to_windows_extended_path
 from offsite.core.apply_sync.contract import validate_apply_result_envelope
+from offsite.core.apply_sync.migration import migrate_apply_result_envelope
 from offsite.core.state.repository import SnapshotRepository
 
 
@@ -27,6 +28,7 @@ def ingest_apply_result(db_path: Path, apply_result_path: Path) -> IngestResult:
     if not isinstance(payload, dict):
         raise ValueError("apply-result payload must be a JSON object")
 
+    payload = migrate_apply_result_envelope(payload)
     validate_apply_result_envelope(payload)
 
     connect_path = to_windows_extended_path(db_path.resolve())

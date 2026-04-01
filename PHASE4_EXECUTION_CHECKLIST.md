@@ -26,7 +26,7 @@ Phase 4 is complete only when all are true:
 - [ ] Recovery can rebuild the latest known good state from offsite media.
 - [x] Recovery resume after interruption is safe and deterministic.
 - [x] Checkpoint state survives process restart without corrupting workflow continuity.
-- [ ] Apply-result schema evolution path is implemented and tested.
+- [x] Apply-result schema evolution path is implemented and tested.
 - [ ] Operator-visible failure diagnostics are structured and actionable.
 - [ ] Deferred inode/device and NAS benchmark items are explicitly resolved or re-deferred.
 - [ ] CI and coverage gates pass (>=85% overall, >=90% critical modules).
@@ -52,10 +52,10 @@ Phase 4 is complete only when all are true:
 
 ### C) Schema Versioning
 
-- [ ] Define envelope schema version transition rules.
-- [ ] Implement migration identifier validation.
-- [ ] Add supported migration handlers.
-- [ ] Reject unsupported or ambiguous schema transitions.
+- [x] Define envelope schema version transition rules.
+- [x] Implement migration identifier validation.
+- [x] Add supported migration handlers.
+- [x] Reject unsupported or ambiguous schema transitions.
 
 ### D) Diagnostics and Operability
 
@@ -77,7 +77,7 @@ Phase 4 is complete only when all are true:
 
 - [x] Recovery contract validator.
 - [x] Checkpoint persistence read/write and conflict detection.
-- [ ] Schema migration acceptance/rejection paths.
+- [x] Schema migration acceptance/rejection paths.
 - [ ] Diagnostics taxonomy rendering/serialization.
 
 ### Integration tests
@@ -85,7 +85,7 @@ Phase 4 is complete only when all are true:
 - [x] Placement index -> recover happy path.
 - [x] Interrupted recovery then resume.
 - [ ] Integrity mismatch during restore.
-- [ ] Unsupported schema migration rejection.
+- [x] Unsupported schema migration rejection.
 - [x] Recovery report artifact generation.
 
 ### CI checks
@@ -101,7 +101,7 @@ Phase 4 is complete only when all are true:
 - [ ] Simulate missing required drive and verify actionable failure output.
 - [x] Simulate stale/conflicting checkpoint and verify fail-closed behavior.
 - [ ] Simulate corrupted payload and verify integrity stop.
-- [ ] Simulate unsupported envelope version and verify migration rejection.
+- [x] Simulate unsupported envelope version and verify migration rejection.
 
 ---
 
