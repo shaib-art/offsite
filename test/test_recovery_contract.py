@@ -108,3 +108,132 @@ def test_validate_recovery_request_rejects_unsafe_relative_path() -> None:
 
     with pytest.raises(ValueError, match="safe relative path"):
         validate_recovery_request(payload)
+
+
+def test_validate_recovery_request_rejects_absolute_relative_path() -> None:
+    """Recovery request validator should reject absolute paths in file mappings."""
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "/tmp/holy_grail/map.txt",
+            "drive_label": "Office-01",
+            "content_sha256": "a" * 64,
+            "size_bytes": 500,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="safe relative path"):
+        validate_recovery_request(payload)
+
+
+def test_validate_recovery_request_rejects_non_list_sections() -> None:
+    """Recovery request validator should reject non-list inventory/files sections."""
+    payload = _valid_request()
+    payload["drive_inventory"] = "Office-01"
+
+    with pytest.raises(ValueError, match="drive_inventory"):
+        validate_recovery_request(payload)
+
+    payload = _valid_request()
+    payload["files"] = "flying_circus/parrot.txt"
+
+    with pytest.raises(ValueError, match="files"):
+        validate_recovery_request(payload)
+
+
+def test_validate_recovery_request_rejects_invalid_drive_inventory_values() -> None:
+    """Recovery request validator should reject impossible drive inventory values."""
+    payload = _valid_request()
+    payload["drive_inventory"] = [
+        {
+            "drive_label": "",
+            "capacity_bytes": 1_000,
+            "free_bytes": 500,
+        }
+    ]
+    with pytest.raises(ValueError, match="drive_label"):
+        validate_recovery_request(payload)
+
+    payload = _valid_request()
+    payload["drive_inventory"] = [
+        {
+            "drive_label": "Office-01",
+            "capacity_bytes": 0,
+            "free_bytes": 0,
+        }
+    ]
+    with pytest.raises(ValueError, match="capacity_bytes"):
+        validate_recovery_request(payload)
+
+    payload = _valid_request()
+    payload["drive_inventory"] = [
+        {
+            "drive_label": "Office-01",
+            "capacity_bytes": 100,
+            "free_bytes": -1,
+        }
+    ]
+    with pytest.raises(ValueError, match="free_bytes"):
+        validate_recovery_request(payload)
+
+
+def test_validate_recovery_request_rejects_invalid_file_entry_values() -> None:
+    """Recovery request validator should reject malformed file mapping fields."""
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "flying_circus/parrot.txt",
+            "content_sha256": "a" * 64,
+            "size_bytes": 500,
+        }
+    ]
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_recovery_request(payload)
+
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "flying_circus/parrot.txt",
+            "drive_label": "",
+            "content_sha256": "a" * 64,
+            "size_bytes": 500,
+        }
+    ]
+    with pytest.raises(ValueError, match="drive_label"):
+        validate_recovery_request(payload)
+
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "flying_circus/parrot.txt",
+            "drive_label": "Office-01",
+            "content_sha256": "a" * 63,
+            "size_bytes": 500,
+        }
+    ]
+    with pytest.raises(ValueError, match="64 hex"):
+        validate_recovery_request(payload)
+
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "flying_circus/parrot.txt",
+            "drive_label": "Office-01",
+            "content_sha256": "z" * 64,
+            "size_bytes": 500,
+        }
+    ]
+    with pytest.raises(ValueError, match="64 hex"):
+        validate_recovery_request(payload)
+
+    payload = _valid_request()
+    payload["files"] = [
+        {
+            "path_rel": "flying_circus/parrot.txt",
+            "drive_label": "Office-01",
+            "content_sha256": "a" * 64,
+            "size_bytes": -1,
+        }
+    ]
+    with pytest.raises(ValueError, match="size_bytes"):
+        validate_recovery_request(payload)

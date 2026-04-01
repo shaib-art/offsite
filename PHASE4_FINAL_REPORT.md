@@ -87,7 +87,7 @@ Implementation remains local-first with no additional runtime dependencies.
 ### Phase 4 critical coverage gate
 
 - Command: `.venv/bin/pytest --cov=offsite.core.recovery --cov=offsite.core.upload --cov=offsite.core.apply_sync --cov=offsite.core.integrity --cov-fail-under=90 -q test/test_recovery_contract.py test/test_recovery_executor.py test/test_recovery_diagnostics.py test/test_upload.py test/test_apply_sync.py test/test_apply_sync_migration.py`
-- Result: **90.08%** (gate >=90%)
+- Result: **94.84%** (gate >=90%)
 
 ---
 

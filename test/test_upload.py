@@ -15,6 +15,25 @@ from offsite.core.state.db import initialize_database
 from offsite.core.state.repository import SnapshotRepository
 
 
+class _ConflictOnUpsertCheckpointRepository:
+    """Test double that injects conflict at checkpoint upsert time."""
+
+    def get_workflow_checkpoint(self, workflow_kind: str, checkpoint_key: str):
+        _ = (workflow_kind, checkpoint_key)
+        return None
+
+    def upsert_workflow_checkpoint(
+        self,
+        workflow_kind: str,
+        checkpoint_key: str,
+        run_id: str,
+        step_index: int,
+        payload_json: str,
+    ) -> None:
+        _ = (workflow_kind, checkpoint_key, run_id, step_index, payload_json)
+        raise ValueError("conflict")
+
+
 def _make_plan_payload(path_rel: str) -> dict[str, object]:
     return {
         "new_snapshot_id": "2",
@@ -265,3 +284,121 @@ def test_execute_upload_rejects_conflicting_checkpoint_run_id(tmp_path: Path) ->
                 checkpoint_repository=repository,
                 checkpoint_key=checkpoint_key,
             )
+
+
+def test_execute_upload_rejects_negative_retries() -> None:
+    """Upload should reject negative retry counts."""
+    with pytest.raises(ValueError, match="retries"):
+        execute_upload(
+            plan_payload=_make_plan_payload("episode.txt"),
+            source_root=Path("/tmp/source"),
+            transport_root=Path("/tmp/transport"),
+            retries=-1,
+        )
+
+
+def test_execute_upload_rejects_missing_checkpoint_key(tmp_path: Path) -> None:
+    """Upload should require checkpoint_key when checkpoint repository is provided."""
+    source_root = tmp_path / "ministry"
+    source_root.mkdir(parents=True)
+    (source_root / "episode.txt").write_text("spam", encoding="utf-8")
+
+    with closing(sqlite3.connect(tmp_path / "state.db")) as connection:
+        repository = SnapshotRepository(connection)
+        with pytest.raises(ValueError, match="checkpoint_key"):
+            execute_upload(
+                plan_payload=_make_plan_payload("episode.txt"),
+                source_root=source_root,
+                transport_root=tmp_path / "transport",
+                checkpoint_repository=repository,
+                checkpoint_key=None,
+            )
+
+
+def test_execute_upload_rejects_missing_source_payload(tmp_path: Path) -> None:
+    """Upload should fail when plan file is absent from source root."""
+    source_root = tmp_path / "missing_source"
+    source_root.mkdir(parents=True)
+
+    with pytest.raises(UploadExecutionError, match="source payload missing"):
+        execute_upload(
+            plan_payload=_make_plan_payload("episode.txt"),
+            source_root=source_root,
+            transport_root=tmp_path / "transport",
+        )
+
+
+def test_execute_upload_rejects_stale_checkpoint_without_payload(tmp_path: Path) -> None:
+    """Upload should fail closed if checkpoint claims progress without destination payload."""
+    source_root = tmp_path / "ministry"
+    source_root.mkdir(parents=True)
+    (source_root / "episode.txt").write_text("spam", encoding="utf-8")
+
+    db_path = tmp_path / "upload_checkpoint_stale.db"
+    initialize_database(db_path)
+    checkpoint_key = "1->2:Office-01"
+
+    with closing(sqlite3.connect(db_path)) as connection:
+        repository = SnapshotRepository(connection)
+        repository.upsert_workflow_checkpoint(
+            workflow_kind="upload",
+            checkpoint_key=checkpoint_key,
+            run_id="upload-coconut-stale",
+            step_index=1,
+            payload_json='{"completed_files":1}',
+        )
+        connection.commit()
+
+    with closing(sqlite3.connect(db_path)) as connection:
+        repository = SnapshotRepository(connection)
+        with pytest.raises(UploadExecutionError, match="checkpoint state invalid"):
+            execute_upload(
+                plan_payload=_make_plan_payload("episode.txt"),
+                source_root=source_root,
+                transport_root=tmp_path / "transport",
+                run_id="upload-coconut-stale",
+                checkpoint_repository=repository,
+                checkpoint_key=checkpoint_key,
+            )
+
+
+def test_execute_upload_accepts_existing_matching_destination_payload(tmp_path: Path) -> None:
+    """Upload should skip copy when destination payload already matches source checksum."""
+    source_root = tmp_path / "ministry"
+    source_root.mkdir(parents=True)
+    source_file = source_root / "episode.txt"
+    source_file.write_text("And now for something completely different.", encoding="utf-8")
+
+    result = execute_upload(
+        plan_payload=_make_plan_payload("episode.txt"),
+        source_root=source_root,
+        transport_root=tmp_path / "transport",
+        run_id="upload-existing",
+    )
+    assert result.copied_files == 1
+
+    rerun = execute_upload(
+        plan_payload=_make_plan_payload("episode.txt"),
+        source_root=source_root,
+        transport_root=tmp_path / "transport",
+        run_id="upload-existing",
+    )
+    assert rerun.copied_files == 0
+    assert rerun.skipped_files == 1
+
+
+def test_execute_upload_rejects_conflict_on_checkpoint_upsert(tmp_path: Path) -> None:
+    """Upload should fail closed when checkpoint upsert reports conflicting run identity."""
+    source_root = tmp_path / "ministry"
+    source_root.mkdir(parents=True)
+    (source_root / "episode.txt").write_text("spam", encoding="utf-8")
+
+    with pytest.raises(UploadExecutionError, match="conflicting checkpoint run_id"):
+        execute_upload(
+            plan_payload=_make_plan_payload("episode.txt"),
+            source_root=source_root,
+            transport_root=tmp_path / "transport",
+            run_id="upload-upsert-conflict",
+            checkpoint_repository=_ConflictOnUpsertCheckpointRepository(),
+            checkpoint_key="1->2:Office-01",
+        )

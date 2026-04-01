@@ -83,6 +83,41 @@ def test_migrate_apply_result_rejects_unsupported_schema_transition() -> None:
         migrate_apply_result_envelope(payload)
 
 
+def test_migrate_apply_result_accepts_current_schema_passthrough() -> None:
+    """Migration helper should return schema-v1 payloads unchanged."""
+    payload = {"schema_version": 1, "apply_run_id": "apply-coconut-001"}
+
+    assert migrate_apply_result_envelope(payload) is payload
+
+
+def test_migrate_apply_result_rejects_non_integer_schema_version() -> None:
+    """Migration helper should reject non-integer schema_version values."""
+    with pytest.raises(ValueError, match="schema_version must be an integer"):
+        migrate_apply_result_envelope({"schema_version": "1"})
+
+
+def test_migrate_apply_result_rejects_legacy_payload_with_invalid_required_fields() -> None:
+    """Migration helper should fail for malformed legacy fields before migration."""
+    payload = _legacy_v0_payload(applied_snapshot_id=1)
+    payload["run_id"] = ""
+    with pytest.raises(ValueError, match="non-empty string"):
+        migrate_apply_result_envelope(payload)
+
+    payload = _legacy_v0_payload(applied_snapshot_id=0)
+    with pytest.raises(ValueError, match="positive integer"):
+        migrate_apply_result_envelope(payload)
+
+    payload = _legacy_v0_payload(applied_snapshot_id=1)
+    payload["bytes_written"] = {"drive_label": "Office-01", "bytes": 1}
+    with pytest.raises(ValueError, match="must be a list"):
+        migrate_apply_result_envelope(payload)
+
+    payload = _legacy_v0_payload(applied_snapshot_id=1)
+    payload["integrity_summary"] = []
+    with pytest.raises(ValueError, match="integrity_summary"):
+        migrate_apply_result_envelope(payload)
+
+
 def test_ingest_apply_result_accepts_supported_v0_migration(tmp_path: Path) -> None:
     """Ingest should accept legacy payloads when a supported migration handler exists."""
     db_path = tmp_path / "phase4_migration_ingest.db"

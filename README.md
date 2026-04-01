@@ -310,7 +310,7 @@ Latest validation snapshot:
 
 - **123 tests passing**, 0 failures.
 - **90.21% overall coverage** (gate >=85%).
-- **90.08% critical coverage** for `offsite.core.recovery` + `offsite.core.upload` + `offsite.core.apply_sync` + `offsite.core.integrity` (gate >=90%).
+- **94.84% critical coverage** for `offsite.core.recovery` + `offsite.core.upload` + `offsite.core.apply_sync` + `offsite.core.integrity` (gate >=90%).
 
 ### Next phase focus (Phase 5 hardening)
 

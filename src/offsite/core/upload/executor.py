@@ -49,7 +49,7 @@ def execute_upload(
     _validate_plan_payload(plan_payload)
     if retries < 0:
         raise ValueError("retries must be non-negative")
-    if checkpoint_repository is not None and not checkpoint_key:
+    if checkpoint_repository is not None and checkpoint_key is None:
         raise ValueError("checkpoint_key is required when checkpoint_repository is provided")
 
     source_plan_id = f"{plan_payload['old_snapshot_id']}->{plan_payload['new_snapshot_id']}"

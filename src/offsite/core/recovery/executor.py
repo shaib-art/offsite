@@ -64,7 +64,7 @@ def execute_recovery(
             code="invalid_recovery_request",
         ) from exc
 
-    if checkpoint_repository is not None and not checkpoint_key:
+    if checkpoint_repository is not None and checkpoint_key is None:
         raise ValueError("checkpoint_key is required when checkpoint_repository is provided")
 
     target_root = Path(str(recovery_request["target_root"]))
