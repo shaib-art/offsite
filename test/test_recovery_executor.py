@@ -268,3 +268,67 @@ def test_execute_recovery_rejects_conflicting_checkpoint_run_id(tmp_path: Path) 
                 checkpoint_repository=repository,
                 checkpoint_key=checkpoint_key,
             )
+
+
+def test_execute_recovery_stops_on_integrity_mismatch_and_reports_failure(tmp_path: Path) -> None:
+    """Recovery should stop on checksum mismatch and emit integrity diagnostics."""
+    media_root = tmp_path / "transport" / "upload-coconut-006" / "payloads"
+    content = "Ni!\n"
+    _write_payload(media_root, "Office-01", "flying_circus/parrot.txt", content)
+
+    request = build_recovery_request(
+        restore_run_id="restore-coconut-006",
+        source_apply_run_id="apply-coconut-006",
+        target_root=(tmp_path / "recovered_home").as_posix(),
+        drive_inventory=[
+            {"drive_label": "Office-01", "capacity_bytes": 1_000, "free_bytes": 500}
+        ],
+        files=[
+            {
+                "path_rel": "flying_circus/parrot.txt",
+                "drive_label": "Office-01",
+                "content_sha256": "b" * 64,
+                "size_bytes": len(content.encode("utf-8")),
+            }
+        ],
+    )
+
+    report_path = tmp_path / "reports" / "restore-integrity-failure.json"
+    with pytest.raises(RecoveryExecutionError, match="checksum mismatch"):
+        execute_recovery(recovery_request=request, media_root=media_root, report_path=report_path)
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["failures"]
+    assert report["failures"][0]["category"] == "integrity"
+    assert report["failures"][0]["code"] == "checksum_mismatch"
+
+
+def test_execute_recovery_reports_missing_payload_as_media_failure(tmp_path: Path) -> None:
+    """Recovery should classify missing payload files as media failures."""
+    media_root = tmp_path / "transport" / "upload-coconut-007" / "payloads"
+
+    request = build_recovery_request(
+        restore_run_id="restore-coconut-007",
+        source_apply_run_id="apply-coconut-007",
+        target_root=(tmp_path / "recovered_home").as_posix(),
+        drive_inventory=[
+            {"drive_label": "Office-01", "capacity_bytes": 1_000, "free_bytes": 500}
+        ],
+        files=[
+            {
+                "path_rel": "flying_circus/parrot.txt",
+                "drive_label": "Office-01",
+                "content_sha256": "a" * 64,
+                "size_bytes": 4,
+            }
+        ],
+    )
+
+    report_path = tmp_path / "reports" / "restore-media-failure.json"
+    with pytest.raises(RecoveryExecutionError, match="payload missing"):
+        execute_recovery(recovery_request=request, media_root=media_root, report_path=report_path)
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["failures"]
+    assert report["failures"][0]["category"] == "media"
+    assert report["failures"][0]["code"] == "missing_payload"

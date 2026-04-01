@@ -10,11 +10,24 @@ from typing import Any, Callable
 
 from offsite.core.integrity.checksum import sha256_file
 from offsite.core.recovery.contract import validate_recovery_request
+from offsite.core.recovery.diagnostics import build_failure
 from offsite.core.state.repository import SnapshotRepository
 
 
 class RecoveryExecutionError(RuntimeError):
     """Raised when recovery execution cannot complete safely."""
+
+    def __init__(
+        self,
+        message: str,
+        category: str,
+        code: str,
+        path_rel: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.category = category
+        self.code = code
+        self.path_rel = path_rel
 
 
 @dataclass(frozen=True)
@@ -40,7 +53,14 @@ def execute_recovery(
     copy_file: CopyFile | None = None,
 ) -> RecoveryExecutionResult:
     """Recover payload files from transport media into target root with verification."""
-    validate_recovery_request(recovery_request)
+    try:
+        validate_recovery_request(recovery_request)
+    except ValueError as exc:
+        raise RecoveryExecutionError(
+            str(exc),
+            category="schema",
+            code="invalid_recovery_request",
+        ) from exc
 
     if checkpoint_repository is not None and not checkpoint_key:
         raise ValueError("checkpoint_key is required when checkpoint_repository is provided")
@@ -64,59 +84,98 @@ def execute_recovery(
     restored_files = 0
     verified_files = 0
 
-    for index, entry in enumerate(files, start=1):
-        path_rel = Path(str(entry["path_rel"]))
-        drive_label = str(entry["drive_label"])
-        expected_sha256 = str(entry["content_sha256"])
-        expected_size_bytes = int(entry["size_bytes"])
+    try:
+        for index, entry in enumerate(files, start=1):
+            path_rel = Path(str(entry["path_rel"]))
+            drive_label = str(entry["drive_label"])
+            expected_sha256 = str(entry["content_sha256"])
+            expected_size_bytes = int(entry["size_bytes"])
 
-        source_path = _resolve_under_root(media_root, Path(drive_label) / path_rel)
-        if not source_path.exists():
-            raise RecoveryExecutionError(f"recovery payload missing: {path_rel.as_posix()}")
-
-        destination_path = _resolve_under_root(target_root, path_rel)
-        if index <= completed_step:
-            if not destination_path.exists():
+            source_path = _resolve_under_root(media_root, Path(drive_label) / path_rel)
+            if not source_path.exists():
                 raise RecoveryExecutionError(
-                    f"checkpoint state invalid for missing restored payload: {path_rel.as_posix()}"
+                    f"recovery payload missing: {path_rel.as_posix()}",
+                    category="media",
+                    code="missing_payload",
+                    path_rel=path_rel.as_posix(),
                 )
-        else:
-            destination_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                copier(source_path, destination_path)
-            except OSError as exc:
+
+            destination_path = _resolve_under_root(target_root, path_rel)
+            if index <= completed_step:
+                if not destination_path.exists():
+                    raise RecoveryExecutionError(
+                        f"checkpoint state invalid for missing restored payload: {path_rel.as_posix()}",
+                        category="checkpoint",
+                        code="stale_checkpoint",
+                        path_rel=path_rel.as_posix(),
+                    )
+            else:
+                destination_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    copier(source_path, destination_path)
+                except OSError as exc:
+                    raise RecoveryExecutionError(
+                        f"media error while restoring payload: {path_rel.as_posix()}",
+                        category="media",
+                        code="copy_failed",
+                        path_rel=path_rel.as_posix(),
+                    ) from exc
+                restored_files += 1
+
+            if destination_path.stat().st_size != expected_size_bytes:
                 raise RecoveryExecutionError(
-                    f"media error while restoring payload: {path_rel.as_posix()}"
-                ) from exc
-            restored_files += 1
+                    f"recovery size mismatch for restored payload: {path_rel.as_posix()}",
+                    category="integrity",
+                    code="size_mismatch",
+                    path_rel=path_rel.as_posix(),
+                )
 
-        if destination_path.stat().st_size != expected_size_bytes:
-            raise RecoveryExecutionError(
-                f"recovery size mismatch for restored payload: {path_rel.as_posix()}"
+            restored_sha256 = sha256_file(destination_path)
+            if restored_sha256 != expected_sha256:
+                raise RecoveryExecutionError(
+                    f"recovery checksum mismatch for restored payload: {path_rel.as_posix()}",
+                    category="integrity",
+                    code="checksum_mismatch",
+                    path_rel=path_rel.as_posix(),
+                )
+            verified_files += 1
+
+            _upsert_checkpoint(
+                checkpoint_repository=checkpoint_repository,
+                checkpoint_key=checkpoint_key,
+                restore_run_id=restore_run_id,
+                completed_step=index,
             )
 
-        restored_sha256 = sha256_file(destination_path)
-        if restored_sha256 != expected_sha256:
-            raise RecoveryExecutionError(
-                f"recovery checksum mismatch for restored payload: {path_rel.as_posix()}"
+            restored_rows.append(
+                {
+                    "path_rel": path_rel.as_posix(),
+                    "drive_label": drive_label,
+                    "size_bytes": expected_size_bytes,
+                    "content_sha256": restored_sha256,
+                }
             )
-        verified_files += 1
-
-        _upsert_checkpoint(
-            checkpoint_repository=checkpoint_repository,
-            checkpoint_key=checkpoint_key,
-            restore_run_id=restore_run_id,
-            completed_step=index,
+    except RecoveryExecutionError as exc:
+        _write_report_immutable(
+            report_path=report_path,
+            payload={
+                "schema_version": 1,
+                "restore_run_id": restore_run_id,
+                "source_apply_run_id": source_apply_run_id,
+                "restored_files": restored_files,
+                "verified_files": verified_files,
+                "restored": restored_rows,
+                "failures": [
+                    build_failure(
+                        category=exc.category,
+                        code=exc.code,
+                        message=str(exc),
+                        path_rel=exc.path_rel,
+                    )
+                ],
+            },
         )
-
-        restored_rows.append(
-            {
-                "path_rel": path_rel.as_posix(),
-                "drive_label": drive_label,
-                "size_bytes": expected_size_bytes,
-                "content_sha256": restored_sha256,
-            }
-        )
+        raise
 
     report_payload = {
         "schema_version": 1,
@@ -128,12 +187,7 @@ def execute_recovery(
         "failures": [],
     }
 
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with report_path.open("x", encoding="utf-8") as handle:
-            handle.write(json.dumps(report_payload, sort_keys=True))
-    except FileExistsError as exc:
-        raise RecoveryExecutionError("recovery report path already exists; report is immutable") from exc
+    _write_report_immutable(report_path=report_path, payload=report_payload)
 
     return RecoveryExecutionResult(
         restore_run_id=restore_run_id,
@@ -160,7 +214,11 @@ def _resolve_completed_step(
         return 0
 
     if checkpoint.run_id != restore_run_id:
-        raise RecoveryExecutionError("conflicting checkpoint run_id for recovery resume")
+        raise RecoveryExecutionError(
+            "conflicting checkpoint run_id for recovery resume",
+            category="checkpoint",
+            code="conflicting_run_id",
+        )
     return checkpoint.step_index
 
 
@@ -183,7 +241,24 @@ def _upsert_checkpoint(
             payload_json=payload_json,
         )
     except ValueError as exc:
-        raise RecoveryExecutionError("conflicting checkpoint run_id for recovery resume") from exc
+        raise RecoveryExecutionError(
+            "conflicting checkpoint run_id for recovery resume",
+            category="checkpoint",
+            code="conflicting_run_id",
+        ) from exc
+
+
+def _write_report_immutable(report_path: Path, payload: dict[str, Any]) -> None:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with report_path.open("x", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True))
+    except FileExistsError as exc:
+        raise RecoveryExecutionError(
+            "recovery report path already exists; report is immutable",
+            category="media",
+            code="immutable_report_exists",
+        ) from exc
 
 
 def _copy_with_shutil(source: Path, destination: Path) -> None:

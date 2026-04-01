@@ -23,11 +23,11 @@ This checklist assumes Phase 3 is closed and apply-result synchronization is sta
 
 Phase 4 is complete only when all are true:
 
-- [ ] Recovery can rebuild the latest known good state from offsite media.
+- [x] Recovery can rebuild the latest known good state from offsite media.
 - [x] Recovery resume after interruption is safe and deterministic.
 - [x] Checkpoint state survives process restart without corrupting workflow continuity.
 - [x] Apply-result schema evolution path is implemented and tested.
-- [ ] Operator-visible failure diagnostics are structured and actionable.
+- [x] Operator-visible failure diagnostics are structured and actionable.
 - [ ] Deferred inode/device and NAS benchmark items are explicitly resolved or re-deferred.
 - [ ] CI and coverage gates pass (>=85% overall, >=90% critical modules).
 
@@ -59,10 +59,10 @@ Phase 4 is complete only when all are true:
 
 ### D) Diagnostics and Operability
 
-- [ ] Expand `failures` taxonomy for operator guidance.
-- [ ] Distinguish integrity, checkpoint, schema, and media errors.
-- [ ] Keep diagnostics deterministic and safe for immutable reports.
-- [ ] Document operator response guidance in runbook/report notes.
+- [x] Expand `failures` taxonomy for operator guidance.
+- [x] Distinguish integrity, checkpoint, schema, and media errors.
+- [x] Keep diagnostics deterministic and safe for immutable reports.
+- [x] Document operator response guidance in runbook/report notes.
 
 ### E) Deferred Inputs
 
@@ -78,13 +78,13 @@ Phase 4 is complete only when all are true:
 - [x] Recovery contract validator.
 - [x] Checkpoint persistence read/write and conflict detection.
 - [x] Schema migration acceptance/rejection paths.
-- [ ] Diagnostics taxonomy rendering/serialization.
+- [x] Diagnostics taxonomy rendering/serialization.
 
 ### Integration tests
 
 - [x] Placement index -> recover happy path.
 - [x] Interrupted recovery then resume.
-- [ ] Integrity mismatch during restore.
+- [x] Integrity mismatch during restore.
 - [x] Unsupported schema migration rejection.
 - [x] Recovery report artifact generation.
 
@@ -98,9 +98,9 @@ Phase 4 is complete only when all are true:
 
 ## Operator Validation
 
-- [ ] Simulate missing required drive and verify actionable failure output.
+- [x] Simulate missing required drive and verify actionable failure output.
 - [x] Simulate stale/conflicting checkpoint and verify fail-closed behavior.
-- [ ] Simulate corrupted payload and verify integrity stop.
+- [x] Simulate corrupted payload and verify integrity stop.
 - [x] Simulate unsupported envelope version and verify migration rejection.
 
 ---
