@@ -30,6 +30,7 @@ def test_initialize_database_creates_schema(tmp_path, open_sqlite):
     assert "office_apply_result" in tables
     assert "home_drive_inventory" in tables
     assert "placement_index" in tables
+    assert "workflow_checkpoint" in tables
 
 
 def test_initialize_database_is_idempotent(tmp_path, open_sqlite):
@@ -56,8 +57,18 @@ def test_initialize_database_is_idempotent(tmp_path, open_sqlite):
               AND name = 'placement_index'
             """
         ).fetchone()[0]
+        checkpoint_count = conn.execute(
+            """
+            SELECT COUNT(*)
+            FROM sqlite_master
+            WHERE type='table'
+              AND name = 'workflow_checkpoint'
+            """
+        ).fetchone()[0]
+
     assert row_count == 4
     assert placement_count == 1
+    assert checkpoint_count == 1
 
 
 def test_initialize_database_has_required_columns(tmp_path, open_sqlite):
