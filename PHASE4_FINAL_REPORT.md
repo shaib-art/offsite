@@ -209,9 +209,7 @@ Recommended Phase 5 priorities:
 1. Add checkpoint cleanup/retention policy and lifecycle tooling.
 2. Introduce CLI command surface for recovery execution and status/report inspection.
 3. Expand migration handler test matrix for future schema transitions beyond v1.
-4. Execute deferred items:
-  - FB-20260321-006 inode/device rename heuristics with migration safety.
-  - FB-20260321-007 real NAS benchmark and runtime envelope capture.
+4. Execute deferred items: FB-20260321-006 inode/device rename heuristics with migration safety; FB-20260321-007 real NAS benchmark and runtime envelope capture.
 5. Address legacy sqlite `ResourceWarning` housekeeping in historical test paths.
 
 Risk notes for Phase 5 planning:
