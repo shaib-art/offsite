@@ -20,7 +20,7 @@ from offsite.core.state.repository import SnapshotRepository
 def _write_payload(base: Path, drive_label: str, path_rel: str, content: str) -> None:
     target = base / drive_label / path_rel
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
+    target.write_text(content, encoding="utf-8", newline="\n")
 
 
 def _sha256_text(content: str) -> str:

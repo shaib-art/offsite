@@ -101,22 +101,22 @@ Implementation remains local-first with no additional runtime dependencies.
 - Item: rename heuristics inode/device support with migration safety.
 - Phase 4 decision: re-defer to Phase 5.
 - Rationale:
-	- Phase 4 prioritized replay-safe recovery, checkpoint persistence, schema migration, and diagnostics.
-	- Inode/device-aware rename heuristics require careful cross-platform behavior validation and migration safety testing against persisted placement state.
+  - Phase 4 prioritized replay-safe recovery, checkpoint persistence, schema migration, and diagnostics.
+  - Inode/device-aware rename heuristics require careful cross-platform behavior validation and migration safety testing against persisted placement state.
 - Required Phase 5 follow-up:
-	- Add migration tests covering historical placement_index transitions.
-	- Add Linux/macOS/Windows behavior matrix tests for inode/device edge cases.
+  - Add migration tests covering historical placement_index transitions.
+  - Add Linux/macOS/Windows behavior matrix tests for inode/device edge cases.
 
 ### FB-20260321-007 Decision Detail
 
 - Item: real NAS performance baseline and runtime envelope capture.
 - Phase 4 decision: re-defer to Phase 5.
 - Rationale:
-	- Repository CI and unit/integration tests are simulation-first and do not provide stable physical NAS signal.
-	- Benchmark quality requires controlled hardware/network setup and repeated measurements.
+  - Repository CI and unit/integration tests are simulation-first and do not provide stable physical NAS signal.
+  - Benchmark quality requires controlled hardware/network setup and repeated measurements.
 - Required Phase 5 follow-up:
-	- Run on real NAS path with fixed hardware and network profile.
-	- Capture runtime envelope metrics and persist benchmark notes for operator expectations.
+  - Run on real NAS path with fixed hardware and network profile.
+  - Capture runtime envelope metrics and persist benchmark notes for operator expectations.
 
 ---
 
@@ -210,8 +210,8 @@ Recommended Phase 5 priorities:
 2. Introduce CLI command surface for recovery execution and status/report inspection.
 3. Expand migration handler test matrix for future schema transitions beyond v1.
 4. Execute deferred items:
-	- FB-20260321-006 inode/device rename heuristics with migration safety.
-	- FB-20260321-007 real NAS benchmark and runtime envelope capture.
+  - FB-20260321-006 inode/device rename heuristics with migration safety.
+  - FB-20260321-007 real NAS benchmark and runtime envelope capture.
 5. Address legacy sqlite `ResourceWarning` housekeeping in historical test paths.
 
 Risk notes for Phase 5 planning:
