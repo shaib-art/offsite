@@ -48,7 +48,7 @@ Phase 4 is complete only when all are true:
 - [x] Persist checkpoint state for interrupted recovery.
 - [x] Validate checkpoint/run identity on resume.
 - [x] Reject conflicting or stale checkpoint state.
-- [ ] Reuse checkpoint model for upload/apply where it improves safety.
+- [x] Reuse checkpoint model for upload/apply where it improves safety.
 
 ### C) Schema Versioning
 

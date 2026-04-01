@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from offsite.core.integrity.checksum import sha256_file
+from offsite.core.state.repository import SnapshotRepository
 
 
 class UploadExecutionError(RuntimeError):
@@ -41,11 +42,15 @@ def execute_upload(
     run_id: str | None = None,
     retries: int = 2,
     copy_file: CopyFile | None = None,
+    checkpoint_repository: SnapshotRepository | None = None,
+    checkpoint_key: str | None = None,
 ) -> UploadExecutionResult:
     """Upload plan files into transport storage with integrity checks."""
     _validate_plan_payload(plan_payload)
     if retries < 0:
         raise ValueError("retries must be non-negative")
+    if checkpoint_repository is not None and not checkpoint_key:
+        raise ValueError("checkpoint_key is required when checkpoint_repository is provided")
 
     source_plan_id = f"{plan_payload['old_snapshot_id']}->{plan_payload['new_snapshot_id']}"
     effective_run_id = run_id or _derive_run_id(plan_payload=plan_payload, source_root=source_root)
@@ -59,8 +64,13 @@ def execute_upload(
     verified_files = 0
     retry_events = 0
     manifest_files: list[dict[str, Any]] = []
+    completed_step = _resolve_completed_upload_step(
+        checkpoint_repository=checkpoint_repository,
+        checkpoint_key=checkpoint_key,
+        run_id=effective_run_id,
+    )
 
-    for item in _iter_plan_files(plan_payload):
+    for index, item in enumerate(_iter_plan_files(plan_payload), start=1):
         path_rel = Path(item["path_rel"])
         drive_label = str(item["drive_label"])
         _validate_payload_path(path_rel)
@@ -74,7 +84,13 @@ def execute_upload(
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
         source_hash = sha256_file(source_path)
-        if destination_path.exists() and sha256_file(destination_path) == source_hash:
+        if index <= completed_step:
+            if not destination_path.exists():
+                raise UploadExecutionError(
+                    f"checkpoint state invalid for missing uploaded payload: {path_rel.as_posix()}"
+                )
+            skipped_files += 1
+        elif destination_path.exists() and sha256_file(destination_path) == source_hash:
             skipped_files += 1
         else:
             attempts = 0
@@ -97,6 +113,13 @@ def execute_upload(
                 f"checksum mismatch for uploaded payload: {path_rel.as_posix()}"
             )
         verified_files += 1
+
+        _upsert_upload_checkpoint(
+            checkpoint_repository=checkpoint_repository,
+            checkpoint_key=checkpoint_key,
+            run_id=effective_run_id,
+            completed_step=index,
+        )
 
         manifest_files.append(
             {
@@ -209,3 +232,43 @@ def _validate_plan_payload(plan_payload: dict[str, Any]) -> None:
         raise ValueError(f"plan payload missing required field(s): {', '.join(missing)}")
     if not isinstance(plan_payload["allocation"], list):
         raise ValueError("plan payload field 'allocation' must be a list")
+
+
+def _resolve_completed_upload_step(
+    checkpoint_repository: SnapshotRepository | None,
+    checkpoint_key: str | None,
+    run_id: str,
+) -> int:
+    if checkpoint_repository is None or checkpoint_key is None:
+        return 0
+
+    checkpoint = checkpoint_repository.get_workflow_checkpoint(
+        workflow_kind="upload",
+        checkpoint_key=checkpoint_key,
+    )
+    if checkpoint is None:
+        return 0
+    if checkpoint.run_id != run_id:
+        raise UploadExecutionError("conflicting checkpoint run_id for upload resume")
+    return checkpoint.step_index
+
+
+def _upsert_upload_checkpoint(
+    checkpoint_repository: SnapshotRepository | None,
+    checkpoint_key: str | None,
+    run_id: str,
+    completed_step: int,
+) -> None:
+    if checkpoint_repository is None or checkpoint_key is None:
+        return
+
+    try:
+        checkpoint_repository.upsert_workflow_checkpoint(
+            workflow_kind="upload",
+            checkpoint_key=checkpoint_key,
+            run_id=run_id,
+            step_index=completed_step,
+            payload_json=json.dumps({"completed_files": completed_step}, sort_keys=True),
+        )
+    except ValueError as exc:
+        raise UploadExecutionError("conflicting checkpoint run_id for upload resume") from exc
