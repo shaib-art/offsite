@@ -24,8 +24,8 @@ This checklist assumes Phase 3 is closed and apply-result synchronization is sta
 Phase 4 is complete only when all are true:
 
 - [ ] Recovery can rebuild the latest known good state from offsite media.
-- [ ] Recovery resume after interruption is safe and deterministic.
-- [ ] Checkpoint state survives process restart without corrupting workflow continuity.
+- [x] Recovery resume after interruption is safe and deterministic.
+- [x] Checkpoint state survives process restart without corrupting workflow continuity.
 - [ ] Apply-result schema evolution path is implemented and tested.
 - [ ] Operator-visible failure diagnostics are structured and actionable.
 - [ ] Deferred inode/device and NAS benchmark items are explicitly resolved or re-deferred.
@@ -83,7 +83,7 @@ Phase 4 is complete only when all are true:
 ### Integration tests
 
 - [x] Placement index -> recover happy path.
-- [ ] Interrupted recovery then resume.
+- [x] Interrupted recovery then resume.
 - [ ] Integrity mismatch during restore.
 - [ ] Unsupported schema migration rejection.
 - [x] Recovery report artifact generation.
@@ -99,7 +99,7 @@ Phase 4 is complete only when all are true:
 ## Operator Validation
 
 - [ ] Simulate missing required drive and verify actionable failure output.
-- [ ] Simulate stale/conflicting checkpoint and verify fail-closed behavior.
+- [x] Simulate stale/conflicting checkpoint and verify fail-closed behavior.
 - [ ] Simulate corrupted payload and verify integrity stop.
 - [ ] Simulate unsupported envelope version and verify migration rejection.
 
